@@ -1,0 +1,30 @@
+# Fichiers de build
+*.o
+*.bin
+*.elf
+*.iso
+*.img
+
+# Répertoires de build
+build/
+kernel/build/
+kernel/iso/
+
+# Cross-compiler (ne pas versionner les binaires)
+opt/
+src/binutils-*/
+src/gcc-*/
+src/build-*/
+*.tar.xz
+*.tar.gz
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Système
+.DS_Store
+Thumbs.db
