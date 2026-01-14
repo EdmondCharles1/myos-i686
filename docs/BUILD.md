@@ -1,49 +1,79 @@
-# Build Guide
+# myos-i686 - Guide de Build
 
-## Prerequisites
+## Prérequis
+
+- Cross-compiler i686-elf-gcc installé dans `$HOME/opt/cross`
+- NASM (assembleur)
+- Make
+- GRUB tools (pour créer l'ISO)
+- QEMU (pour tester)
+
+## Installation des dépendances
 ```bash
-sudo apt install -y nasm grub-pc-bin xorriso qemu-system-x86
+sudo apt install -y nasm make grub-pc-bin xorriso qemu-system-x86
 ```
 
-## Build Steps
-
-### 1. Build toolchain (one-time setup)
+## Compilation
 ```bash
-cd toolchain
-./build-toolchain.sh
-```
-
-### 2. Build kernel
-```bash
-cd kernel
+# Compiler le kernel
 make
+
+# Vérifier le Multiboot header
+make check
+
+# Nettoyer
+make clean
+
+# Recompiler complètement
+make rebuild
 ```
 
-### 3. Run in QEMU
+## Structure des fichiers générés
+```
+kernel/build/
+├── boot.o          # Code assembleur compilé
+├── kernel.o        # Code C compilé
+└── myos.bin        # Kernel final (ELF 32-bit)
+```
+
+## Commandes utiles
 ```bash
-make run
-# or
-cd ..
-./scripts/run-qemu.sh
+# Afficher les informations du projet
+make info
+
+# Afficher la structure
+make tree
+
+# Vérifier le type de fichier
+file kernel/build/myos.bin
+
+# Désassembler
+i686-elf-objdump -d kernel/build/myos.bin | less
+
+# Voir les symboles
+i686-elf-nm kernel/build/myos.bin
 ```
 
-## Expected Output
+## Dépannage
 
-You should see:
-```
-MyOS i686 v0.1
-Kernel loaded successfully!
-```
+### Erreur : `i686-elf-gcc: command not found`
 
-## Troubleshooting
-
-### `i686-elf-gcc: command not found`
+Vérifier le PATH :
 ```bash
 export PATH="$HOME/opt/cross/bin:$PATH"
+source ~/.bashrc
 ```
 
-### QEMU shows black screen
+### Erreur : `nasm: command not found`
+
+Installer NASM :
 ```bash
-grub-file --is-x86-multiboot kernel/build/myos.bin
+sudo apt install -y nasm
 ```
-Should return exit code 0.
+
+### Erreur : `undefined reference to '__udivdi3'`
+
+Vérifier libgcc :
+```bash
+i686-elf-gcc -print-libgcc-file-name
+```

@@ -1,55 +1,58 @@
-# MyOS i686 - Operating System from Scratch
+# myos-i686
 
-Custom 32-bit operating system written in C and Assembly for learning purposes.
+Un système d'exploitation minimaliste pour architecture i686 (x86 32-bit).
 
-## 🎯 Project Status
+## 🎯 Objectif
 
-- [x] Cross-compiler toolchain (i686-elf)
-- [x] Multiboot-compliant bootloader
-- [x] Basic VGA text mode driver
-- [ ] Keyboard driver
-- [ ] Interrupt handling (IDT)
-- [ ] Memory management (paging)
-- [ ] Multitasking
+Apprendre le développement OS bare-metal en créant un kernel i686 bootable.
 
-## 🛠️ Build Requirements
+## 🛠️ Prérequis
 
-- **Host OS:** WSL2 (Ubuntu/Debian)
-- **Cross-compiler:** i686-elf-gcc
-- **Emulator:** QEMU (qemu-system-i386)
-- **Bootloader:** GRUB
+- WSL2 (Ubuntu/Debian)
+- Cross-compiler i686-elf-gcc
+- NASM
+- QEMU (pour les tests)
 
-## 📦 Installation
-
-### 1. Build the toolchain
+## 🚀 Quick Start
 ```bash
-cd toolchain
-./build-toolchain.sh
-```
-
-### 2. Build the kernel
-```bash
-cd kernel
+# Compiler
 make
+
+# Vérifier Multiboot
+make check
+
+# Tester dans QEMU
+qemu-system-i386 -kernel kernel/build/myos.bin
 ```
 
-### 3. Run in QEMU
-```bash
-make run
-# or
-qemu-system-i386 -cdrom myos.iso
+## 📁 Structure
+```
+myos-i686/
+├── boot.asm              # Point d'entrée assembleur
+├── kernel/
+│   ├── src/
+│   │   ├── kernel.c      # Code C du kernel
+│   │   └── linker.ld     # Script de linkage
+│   └── build/            # Fichiers compilés (généré)
+├── docs/
+│   └── BUILD.md          # Documentation de build
+├── scripts/              # Scripts d'automatisation
+└── Makefile              # Système de build
 ```
 
 ## 📚 Documentation
 
-See [docs/BUILD.md](docs/BUILD.md) for detailed build instructions.
+Voir [docs/BUILD.md](docs/BUILD.md) pour les instructions détaillées.
 
-## 🔗 Resources
+## 🎨 Fonctionnalités actuelles
 
-- [OSDev Wiki](https://wiki.osdev.org/)
-- [GCC Cross-Compiler](https://wiki.osdev.org/GCC_Cross-Compiler)
-- [Bare Bones Tutorial](https://wiki.osdev.org/Bare_Bones)
+- [x] Boot via GRUB (Multiboot)
+- [x] Affichage VGA mode texte 80x25
+- [x] Gestion des couleurs
+- [ ] Gestion clavier
+- [ ] Interruptions (IDT)
+- [ ] Pagination mémoire
 
-## 📝 License
+## 📝 Licence
 
-MIT License - Feel free to learn from this code!
+Projet éducatif - Libre d'utilisation
