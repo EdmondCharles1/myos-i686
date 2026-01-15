@@ -1,10 +1,7 @@
 # =============================================================================
-# Makefile - myos-i686 Build System
+# Makefile - myos-i686 Build System (avec SSP)
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Configuration des outils
-# -----------------------------------------------------------------------------
 CC      = i686-elf-gcc
 AS      = nasm
 
@@ -16,52 +13,59 @@ DIST         = dist
 
 # Flags du compilateur C
 CFLAGS  = -std=c11 -ffreestanding -O2 -Wall -Wextra -I$(KERNEL_SRC)
+# Activer le Stack Smashing Protector
+CFLAGS += -fstack-protector-all
 
 # Flags de l'assembleur NASM
 ASFLAGS = -f elf32
 
-# Flags du linker (via GCC)
+# Flags du linker
 LDFLAGS = -T $(KERNEL_SRC)/linker.ld -ffreestanding -nostdlib -lgcc
 
 # Fichiers sources
 BOOT_ASM = boot.asm
 KERNEL_C = $(KERNEL_SRC)/kernel.c
+PRINTF_C = $(KERNEL_SRC)/printf.c
+STACK_C  = $(KERNEL_SRC)/stack_protector.c
 
 # Fichiers objets
 BOOT_O   = $(KERNEL_BUILD)/boot.o
 KERNEL_O = $(KERNEL_BUILD)/kernel.o
-OBJS     = $(BOOT_O) $(KERNEL_O)
+PRINTF_O = $(KERNEL_BUILD)/printf.o
+STACK_O  = $(KERNEL_BUILD)/stack_protector.o
+OBJS     = $(BOOT_O) $(KERNEL_O) $(PRINTF_O) $(STACK_O)
 
-# Nom du binaire final
+# Binaires
 KERNEL_BIN = $(KERNEL_BUILD)/myos.bin
-
-# Nom de l'ISO
-ISO_NAME = myos.iso
-ISO_FILE = $(DIST)/$(ISO_NAME)
+ISO_FILE   = $(DIST)/myos.iso
 
 # -----------------------------------------------------------------------------
 # Règles de compilation
 # -----------------------------------------------------------------------------
 
-# Règle par défaut : compile tout
 all: dirs $(KERNEL_BIN)
 
-# Créer les répertoires nécessaires
 dirs:
 	@mkdir -p $(KERNEL_BUILD)
 	@mkdir -p $(DIST)
+	@mkdir -p $(KERNEL_ISO)/boot/grub
 
-# Assemblage de boot.asm
 $(BOOT_O): $(BOOT_ASM)
 	@echo "[AS] $(BOOT_ASM) -> $(BOOT_O)"
 	@$(AS) $(ASFLAGS) $(BOOT_ASM) -o $(BOOT_O)
 
-# Compilation de kernel.c
-$(KERNEL_O): $(KERNEL_C)
+$(KERNEL_O): $(KERNEL_C) $(KERNEL_SRC)/printf.h $(KERNEL_SRC)/stack_protector.h
 	@echo "[CC] $(KERNEL_C) -> $(KERNEL_O)"
 	@$(CC) $(CFLAGS) -c $(KERNEL_C) -o $(KERNEL_O)
 
-# Linkage final (utilise GCC au lieu de LD)
+$(PRINTF_O): $(PRINTF_C) $(KERNEL_SRC)/printf.h
+	@echo "[CC] $(PRINTF_C) -> $(PRINTF_O)"
+	@$(CC) $(CFLAGS) -c $(PRINTF_C) -o $(PRINTF_O)
+
+$(STACK_O): $(STACK_C) $(KERNEL_SRC)/stack_protector.h
+	@echo "[CC] $(STACK_C) -> $(STACK_O)"
+	@$(CC) $(CFLAGS) -c $(STACK_C) -o $(STACK_O)
+
 $(KERNEL_BIN): $(OBJS)
 	@echo "[LD] Linkage -> $(KERNEL_BIN)"
 	@$(CC) $(LDFLAGS) $(OBJS) -o $(KERNEL_BIN)
@@ -70,44 +74,68 @@ $(KERNEL_BIN): $(OBJS)
 	@echo "Fichier généré : $(KERNEL_BIN)"
 	@file $(KERNEL_BIN)
 
-# Vérification Multiboot
+# -----------------------------------------------------------------------------
+# ISO
+# -----------------------------------------------------------------------------
+
+iso: $(KERNEL_BIN)
+	@echo ""
+	@echo "📀 Création de l'image ISO..."
+	@mkdir -p $(KERNEL_ISO)/boot/grub
+	@cp $(KERNEL_BIN) $(KERNEL_ISO)/boot/myos.bin
+	@echo "✓ Kernel copié"
+	@if [ ! -f $(KERNEL_ISO)/boot/grub/grub.cfg ]; then \
+		echo "❌ grub.cfg manquant !"; exit 1; \
+	fi
+	@grub-mkrescue -o $(ISO_FILE) $(KERNEL_ISO) 2>/dev/null
+	@echo ""
+	@echo "✅ ISO créée : $(ISO_FILE)"
+	@ls -lh $(ISO_FILE)
+
+# -----------------------------------------------------------------------------
+# Tests
+# -----------------------------------------------------------------------------
+
 check: $(KERNEL_BIN)
 	@echo "Vérification Multiboot..."
 	@grub-file --is-x86-multiboot $(KERNEL_BIN) && echo "✅ Multiboot valide" || echo "❌ Multiboot invalide"
 
-# Nettoyage des fichiers de build
+run: $(KERNEL_BIN)
+	@echo "🚀 Lancement du kernel..."
+	@qemu-system-i386 -kernel $(KERNEL_BIN)
+
+run-iso: iso
+	@echo "🚀 Lancement de l'ISO..."
+	@qemu-system-i386 -cdrom $(ISO_FILE)
+
+# -----------------------------------------------------------------------------
+# Nettoyage
+# -----------------------------------------------------------------------------
+
 clean:
-	@echo "Nettoyage des fichiers de build..."
+	@echo "🧹 Nettoyage..."
 	@rm -rf $(KERNEL_BUILD)
-	@echo "✅ Nettoyage terminé"
 
-# Nettoyage complet (build + dist)
-distclean: clean
-	@echo "Nettoyage complet..."
+clean-iso:
+	@rm -rf $(KERNEL_ISO)/boot/myos.bin
+	@rm -f $(ISO_FILE)
+
+distclean: clean clean-iso
 	@rm -rf $(DIST)
-	@echo "✅ Nettoyage complet terminé"
 
-# Recompilation complète
 rebuild: clean all
 
-# Informations sur le projet
+rebuild-iso: clean-iso iso
+
+# -----------------------------------------------------------------------------
+# Info
+# -----------------------------------------------------------------------------
+
 info:
 	@echo "=== myos-i686 Build Information ==="
 	@echo "Compilateur : $(CC)"
-	@echo "Assembleur  : $(AS)"
+	@echo "Flags SSP   : -fstack-protector-all"
 	@echo "Kernel bin  : $(KERNEL_BIN)"
-	@echo "libgcc      : $$($(CC) -print-libgcc-file-name)"
-	@echo ""
-	@echo "=== Répertoires ==="
-	@echo "Sources     : $(KERNEL_SRC)"
-	@echo "Build       : $(KERNEL_BUILD)"
-	@echo "Distribution: $(DIST)"
-	@echo ""
-	@echo "=== Fichiers sources ==="
-	@ls -lh $(BOOT_ASM) $(KERNEL_C) $(KERNEL_SRC)/linker.ld 2>/dev/null || true
+	@echo "ISO file    : $(ISO_FILE)"
 
-# Affiche la structure du projet
-tree:
-	@tree -L 3 -I 'build|iso|dist' .
-
-.PHONY: all dirs clean distclean rebuild check info tree
+.PHONY: all dirs clean clean-iso distclean rebuild rebuild-iso check info iso run run-iso

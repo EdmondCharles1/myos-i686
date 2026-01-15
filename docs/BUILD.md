@@ -77,3 +77,39 @@ Vérifier libgcc :
 ```bash
 i686-elf-gcc -print-libgcc-file-name
 ```
+
+## Stack Smashing Protector (SSP)
+
+### Qu'est-ce que c'est ?
+
+Le SSP est une protection contre les buffer overflows qui :
+- Insère un "canary" (valeur de garde) sur la pile
+- Vérifie le canary avant chaque retour de fonction
+- Appelle `__stack_chk_fail()` si corruption détectée
+
+### Activation
+
+Le SSP est activé automatiquement via le flag GCC :
+```bash
+-fstack-protector-all
+```
+
+### Tester le SSP
+
+⚠️ **Pour développeurs seulement - ceci crashera le kernel**
+
+1. Décommenter `test_stack_smashing()` dans `kernel.c`
+2. Recompiler : `make rebuild`
+3. Lancer : `make run`
+4. Observer la détection du buffer overflow
+
+### Désactiver le SSP (non recommandé)
+
+Si nécessaire, retirer le flag `-fstack-protector-all` du Makefile.
+
+### Amélioration future
+
+Pour un kernel en production, le canary devrait être :
+- Généré aléatoirement au boot
+- Basé sur une source d'entropie (RDRAND, timer, etc.)
+- Différent à chaque exécution
