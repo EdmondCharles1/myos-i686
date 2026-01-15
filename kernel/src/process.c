@@ -87,6 +87,17 @@ void process_init(void) {
 }
 
 uint32_t process_create(const char* name, void (*entry)(void), uint32_t priority) {
+    // Vérifier les paramètres
+    if (name == NULL || entry == NULL) {
+        printf("[PROCESS] Erreur: parametres invalides\n");
+        return 0;
+    }
+    
+    // Limiter la priorité
+    if (priority > PRIORITY_MAX) {
+        priority = PRIORITY_MAX;
+    }
+    
     // Trouver un slot libre
     process_t* process = find_free_slot();
     if (process == NULL) {
@@ -187,6 +198,10 @@ process_t* process_get_current(void) {
     return current_process;
 }
 
+void process_set_current(process_t* process) {
+    current_process = process;
+}
+
 process_t* process_get_by_pid(uint32_t pid) {
     for (int i = 0; i < MAX_PROCESSES; i++) {
         if (process_table[i].pid == pid && 
@@ -205,10 +220,13 @@ void process_set_state(process_t* process, process_state_t state) {
     process_state_t old_state = process->state;
     process->state = state;
     
-    printf("[PROCESS] PID=%u: %s -> %s\n",
-           process->pid,
-           process_state_to_string(old_state),
-           process_state_to_string(state));
+    // Ne logger que si l'état change réellement
+    if (old_state != state) {
+        printf("[PROCESS] PID=%u: %s -> %s\n",
+               process->pid,
+               process_state_to_string(old_state),
+               process_state_to_string(state));
+    }
 }
 
 void process_list(void) {
@@ -247,4 +265,11 @@ const char* process_state_to_string(process_state_t state) {
         case PROCESS_STATE_TERMINATED: return "TERMINATED";
         default:                       return "UNKNOWN";
     }
+}
+
+process_t* process_get_table(uint32_t* out_size) {
+    if (out_size != NULL) {
+        *out_size = MAX_PROCESSES;
+    }
+    return process_table;
 }

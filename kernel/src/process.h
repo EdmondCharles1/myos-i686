@@ -142,6 +142,13 @@ process_t* process_get_by_pid(uint32_t pid);
 void process_set_state(process_t* process, process_state_t state);
 
 /**
+ * Définit le processus courant (utilisé par le scheduler)
+ * 
+ * @param process Pointeur vers le PCB du processus à définir comme courant
+ */
+void process_set_current(process_t* process);
+
+/**
  * Affiche la liste de tous les processus (pour debug)
  */
 void process_list(void);
@@ -155,7 +162,18 @@ uint32_t process_count(void);
 
 /**
  * Convertit un état en chaîne de caractères
+ * 
+ * @param state État du processus
+ * @return      Chaîne de caractères représentant l'état
  */
 const char* process_state_to_string(process_state_t state);
+
+/**
+ * Retourne la table de processus (pour le scheduler)
+ * 
+ * @param out_size Pointeur où stocker la taille de la table
+ * @return         Pointeur vers la table de processus
+ */
+process_t* process_get_table(uint32_t* out_size);
 
 #endif // PROCESS_H
