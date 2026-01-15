@@ -6,6 +6,7 @@
 #define TIMER_H
 
 #include <stdint.h>
+#include "isr.h"
 
 // =============================================================================
 // Constantes
@@ -24,6 +25,16 @@
  *                  (ex: 100 Hz = interruption toutes les 10ms)
  */
 void timer_init(uint32_t frequency);
+
+/**
+ * Active l'appel du scheduler à chaque tick
+ */
+void timer_enable_scheduler(void);
+
+/**
+ * Désactive l'appel du scheduler
+ */
+void timer_disable_scheduler(void);
 
 /**
  * Retourne le nombre de ticks depuis le démarrage

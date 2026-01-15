@@ -1,6 +1,6 @@
 # =============================================================================
 # Makefile - myos-i686 Build System
-# Avec: SSP, Interruptions, Timer, Process Management
+# Avec: SSP, Interruptions, Timer, Process Management, Scheduler
 # =============================================================================
 
 CC      = i686-elf-gcc
@@ -37,7 +37,8 @@ C_SOURCES = \
 	$(KERNEL_SRC)/irq.c \
 	$(KERNEL_SRC)/pic.c \
 	$(KERNEL_SRC)/timer.c \
-	$(KERNEL_SRC)/process.c
+	$(KERNEL_SRC)/process.c \
+	$(KERNEL_SRC)/scheduler.c
 
 # Fichiers objets (générés automatiquement)
 BOOT_O    = $(KERNEL_BUILD)/boot.o
@@ -92,7 +93,8 @@ $(KERNEL_BIN): $(OBJS)
 	@echo "  ✓ IRQ (Hardware Interrupts 32-47)"
 	@echo "  ✓ PIC (8259 Interrupt Controller)"
 	@echo "  ✓ Timer (PIT 8253 @ 100 Hz)"
-	@echo "  ✓ Process Manager (PCB + Scheduler)"
+	@echo "  ✓ Process Manager (PCB + 32 slots)"
+	@echo "  ✓ Scheduler (FCFS + Round Robin)"
 	@echo "  ✓ Printf (formatted output)"
 	@echo "  ✓ Stack Protector (SSP)"
 
@@ -136,7 +138,7 @@ check: $(KERNEL_BIN)
 	@ls -lh $(KERNEL_BIN)
 	@echo ""
 	@echo "🔢 Symboles principaux :"
-	@i686-elf-nm $(KERNEL_BIN) | grep -E "(kernel_main|_start|timer_init|idt_init|process_init)" || true
+	@i686-elf-nm $(KERNEL_BIN) | grep -E "(kernel_main|_start|timer_init|scheduler_schedule)" || true
 
 run: $(KERNEL_BIN)
 	@echo "🚀 Lancement du kernel dans QEMU (mode direct)..."
@@ -208,7 +210,8 @@ info:
 	@echo "║   • IRQ (16 interruptions hardware)                        ║"
 	@echo "║   • PIC 8259 (remappage IRQ 0-15 → INT 32-47)              ║"
 	@echo "║   • Timer PIT 8253 (100 Hz / 10ms period)                  ║"
-	@echo "║   • Process Manager (PCB, états, création/terminaison)     ║"
+	@echo "║   • Process Manager (PCB, 32 slots, états)                 ║"
+	@echo "║   • Scheduler (FCFS + Round Robin + journal)               ║"
 	@echo "║   • Printf (formatted output)                              ║"
 	@echo "║   • Stack Smashing Protector                               ║"
 	@echo "╚════════════════════════════════════════════════════════════╝"

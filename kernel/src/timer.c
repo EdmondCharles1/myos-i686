@@ -1,10 +1,12 @@
 /*
- * timer.c - Implementation du timer système (PIT)
+ * timer.c - Implementation du timer système (PIT) avec scheduler
  */
 
 #include "timer.h"
 #include "irq.h"
 #include "printf.h"
+#include <stdint.h>
+#include <stdbool.h>
 
 // =============================================================================
 // Ports I/O du PIT
@@ -22,6 +24,10 @@
 static volatile uint64_t timer_ticks = 0;
 static uint32_t timer_frequency = 0;
 
+// Forward declaration pour le scheduler
+extern void scheduler_schedule(void);
+static bool scheduler_enabled = false;
+
 // =============================================================================
 // Fonctions I/O
 // =============================================================================
@@ -37,6 +43,11 @@ static inline void outb(uint16_t port, uint8_t val) {
 static void timer_handler(registers_t* regs) {
     (void)regs;  // Inutilisé
     timer_ticks++;
+    
+    // Appeler le scheduler si activé
+    if (scheduler_enabled) {
+        scheduler_schedule();
+    }
 }
 
 // =============================================================================
@@ -65,6 +76,16 @@ void timer_init(uint32_t frequency) {
     
     printf("[TIMER] Timer initialise (diviseur: %u)\n", divisor);
     printf("[TIMER] Periode: %u ms\n", 1000 / frequency);
+}
+
+void timer_enable_scheduler(void) {
+    scheduler_enabled = true;
+    printf("[TIMER] Scheduler active dans le timer\n");
+}
+
+void timer_disable_scheduler(void) {
+    scheduler_enabled = false;
+    printf("[TIMER] Scheduler desactive dans le timer\n");
 }
 
 uint64_t timer_get_ticks(void) {
