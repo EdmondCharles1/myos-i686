@@ -1,7 +1,6 @@
-
 /*
  * kernel.c - Code principal du kernel myos-i686
- * (avec SSP + Interruptions + Timer)
+ * (avec SSP + Interruptions + Timer + Processus)
  */
 
 #include <stdint.h>
@@ -12,6 +11,7 @@
 #include "isr.h"
 #include "irq.h"
 #include "timer.h"
+#include "process.h"
 
 // =============================================================================
 // Configuration VGA
@@ -86,6 +86,37 @@ void terminal_write(const char* data) {
 }
 
 // =============================================================================
+// Fonctions de test pour les processus
+// =============================================================================
+
+void process_idle(void) {
+    while (1) {
+        __asm__ volatile ("hlt");
+    }
+}
+
+void process_test_1(void) {
+    printf("[PROC1] Je suis le processus de test 1\n");
+    while (1) {
+        __asm__ volatile ("hlt");
+    }
+}
+
+void process_test_2(void) {
+    printf("[PROC2] Je suis le processus de test 2\n");
+    while (1) {
+        __asm__ volatile ("hlt");
+    }
+}
+
+void process_test_3(void) {
+    printf("[PROC3] Je suis le processus de test 3\n");
+    while (1) {
+        __asm__ volatile ("hlt");
+    }
+}
+
+// =============================================================================
 // Point d'entrée du kernel
 // =============================================================================
 
@@ -99,8 +130,8 @@ void kernel_main(void) {
     // En-tête
     terminal_setcolor(vga_color(15, 1));  // Blanc sur bleu
     printf("========================================\n");
-    printf("    myos-i686 Kernel v0.4\n");
-    printf("    (SSP + Interruptions + Timer)\n");
+    printf("    myos-i686 Kernel v0.5\n");
+    printf("    (+ Gestion de processus)\n");
     printf("========================================\n\n");
     
     // Initialisation des systèmes
@@ -119,6 +150,9 @@ void kernel_main(void) {
     // Timer (100 Hz = tick toutes les 10ms)
     timer_init(100);
     
+    // Système de processus
+    process_init();
+    
     printf("\n");
     terminal_setcolor(vga_color(10, 0));  // Vert
     printf("Systeme initialise avec succes!\n\n");
@@ -129,39 +163,53 @@ void kernel_main(void) {
     printf("  Stack Smashing Protector: ACTIF\n");
     printf("  Canary: 0x%X\n\n", __stack_chk_guard);
     
-    // Test du timer
+    // Test du système de processus
     terminal_setcolor(vga_color(11, 0));  // Cyan
-    printf("Test du timer...\n");
-    printf("Attente de 3 secondes...\n");
+    printf("=== Test du systeme de processus ===\n\n");
     
-    uint64_t start_ticks = timer_get_ticks();
-    timer_wait(300);  // 300 ticks = 3 secondes à 100 Hz
-    uint64_t end_ticks = timer_get_ticks();
+    // Créer quelques processus de test
+    printf("Creation de processus de test...\n");
+    uint32_t pid1 = process_create("idle", process_idle, PRIORITY_MIN);
+    uint32_t pid2 = process_create("test_1", process_test_1, PRIORITY_DEFAULT);
+    uint32_t pid3 = process_create("test_2", process_test_2, PRIORITY_DEFAULT);
+    uint32_t pid4 = process_create("test_3", process_test_3, PRIORITY_MAX);
     
-    printf("Ticks ecoules: %u\n", (uint32_t)(end_ticks - start_ticks));
-    printf("Temps ecoule: %u ms\n\n", (uint32_t)timer_get_ms());
+    printf("\nProcessus crees:\n");
+    printf("  PID %u: idle (priorite: %u)\n", pid1, PRIORITY_MIN);
+    printf("  PID %u: test_1 (priorite: %u)\n", pid2, PRIORITY_DEFAULT);
+    printf("  PID %u: test_2 (priorite: %u)\n", pid3, PRIORITY_DEFAULT);
+    printf("  PID %u: test_3 (priorite: %u)\n\n", pid4, PRIORITY_MAX);
+    
+    // Afficher la liste des processus
+    terminal_setcolor(vga_color(15, 0));  // Blanc
+    process_list();
+    
+    // Test de terminaison de processus
+    terminal_setcolor(vga_color(12, 0));  // Rouge clair
+    printf("Test de terminaison du processus PID=%u...\n", pid2);
+    if (process_kill(pid2)) {
+        printf("Processus termine avec succes\n\n");
+    } else {
+        printf("Echec de la terminaison\n\n");
+    }
+    
+    // Afficher la liste mise à jour
+    terminal_setcolor(vga_color(15, 0));  // Blanc
+    process_list();
     
     // Informations système
-    terminal_setcolor(vga_color(15, 0));  // Blanc
-    printf("Informations systeme:\n");
-    printf("  Compilateur: i686-elf-gcc\n");
-    printf("  Architecture: x86 (32-bit)\n");
-    printf("  Mode: Bare-metal\n");
-    printf("  Frequence timer: 100 Hz (10ms/tick)\n\n");
+    terminal_setcolor(vga_color(10, 0));  // Vert
+    printf("Processus actifs: %u\n\n", process_count());
     
-    // Affichage d'un compteur en temps réel
+    // Compteur en temps réel
     terminal_setcolor(vga_color(14, 0));  // Jaune
-    printf("Compteur de ticks (en temps reel):\n\n");
+    printf("Compteur de ticks (Ctrl+C pour quitter):\n\n");
     
     // Position fixe pour le compteur
     size_t counter_row = terminal_row;
     size_t counter_col = terminal_column;
     
     uint64_t last_display_tick = 0;
-    
-    terminal_setcolor(vga_color(12, 0));  // Rouge clair
-    terminal_newline();
-    printf("Appuyez sur Ctrl+C pour quitter QEMU\n");
     
     // Boucle principale
     while (1) {

@@ -1,5 +1,6 @@
 # =============================================================================
-# Makefile - myos-i686 Build System (avec interruptions + timer + SSP)
+# Makefile - myos-i686 Build System
+# Avec: SSP, Interruptions, Timer, Process Management
 # =============================================================================
 
 CC      = i686-elf-gcc
@@ -35,7 +36,8 @@ C_SOURCES = \
 	$(KERNEL_SRC)/isr.c \
 	$(KERNEL_SRC)/irq.c \
 	$(KERNEL_SRC)/pic.c \
-	$(KERNEL_SRC)/timer.c
+	$(KERNEL_SRC)/timer.c \
+	$(KERNEL_SRC)/process.c
 
 # Fichiers objets (générés automatiquement)
 BOOT_O    = $(KERNEL_BUILD)/boot.o
@@ -90,6 +92,7 @@ $(KERNEL_BIN): $(OBJS)
 	@echo "  ✓ IRQ (Hardware Interrupts 32-47)"
 	@echo "  ✓ PIC (8259 Interrupt Controller)"
 	@echo "  ✓ Timer (PIT 8253 @ 100 Hz)"
+	@echo "  ✓ Process Manager (PCB + Scheduler)"
 	@echo "  ✓ Printf (formatted output)"
 	@echo "  ✓ Stack Protector (SSP)"
 
@@ -133,7 +136,7 @@ check: $(KERNEL_BIN)
 	@ls -lh $(KERNEL_BIN)
 	@echo ""
 	@echo "🔢 Symboles principaux :"
-	@i686-elf-nm $(KERNEL_BIN) | grep -E "(kernel_main|_start|timer_init|idt_init)" || true
+	@i686-elf-nm $(KERNEL_BIN) | grep -E "(kernel_main|_start|timer_init|idt_init|process_init)" || true
 
 run: $(KERNEL_BIN)
 	@echo "🚀 Lancement du kernel dans QEMU (mode direct)..."
@@ -195,16 +198,17 @@ info:
 	@echo "║ Flags SSP      : -fstack-protector-all                     ║"
 	@echo "║ Optimisation   : -O2                                       ║"
 	@echo "╠════════════════════════════════════════════════════════════╣"
-	@echo "║ Kernel binaire : $(KERNEL_BIN)              								║"
-	@echo "║ Image ISO      : $(ISO_FILE)                    						║"
+	@echo "║ Kernel binaire : $(KERNEL_BIN)                    ║"
+	@echo "║ Image ISO      : $(DIST)/myos.iso                          ║"
 	@echo "╠════════════════════════════════════════════════════════════╣"
-	@echo "║ Modules système compilés :                                	║"
+	@echo "║ Modules système compilés :                                 ║"
 	@echo "║   • Boot & Multiboot header                                ║"
 	@echo "║   • IDT (256 entrées d'interruptions)                      ║"
 	@echo "║   • ISR (32 exceptions CPU)                                ║"
 	@echo "║   • IRQ (16 interruptions hardware)                        ║"
 	@echo "║   • PIC 8259 (remappage IRQ 0-15 → INT 32-47)              ║"
 	@echo "║   • Timer PIT 8253 (100 Hz / 10ms period)                  ║"
+	@echo "║   • Process Manager (PCB, états, création/terminaison)     ║"
 	@echo "║   • Printf (formatted output)                              ║"
 	@echo "║   • Stack Smashing Protector                               ║"
 	@echo "╚════════════════════════════════════════════════════════════╝"
@@ -212,8 +216,16 @@ info:
 	@if [ -d $(KERNEL_BUILD) ] && [ "$$(ls -A $(KERNEL_BUILD) 2>/dev/null)" ]; then \
 		echo "📦 Fichiers objets compilés :"; \
 		ls -lh $(KERNEL_BUILD)/*.o 2>/dev/null | awk '{print "   " $$9 " (" $$5 ")"}'; \
+		echo ""; \
+		echo "📈 Taille totale des objets :"; \
+		du -sh $(KERNEL_BUILD) 2>/dev/null; \
 	else \
 		echo "⚠️  Aucun fichier compilé (lancez 'make')"; \
+	fi
+	@echo ""
+	@if [ -f $(KERNEL_BIN) ]; then \
+		echo "🎯 Kernel final :"; \
+		ls -lh $(KERNEL_BIN); \
 	fi
 
 help:
@@ -258,6 +270,12 @@ list:
 	@ls $(KERNEL_SRC)/*.h 2>/dev/null | while read file; do \
 		echo "   • $$file"; \
 	done || echo "   (aucun)"
+	@echo ""
+	@echo "📊 Statistiques :"
+	@echo "   Lignes de code C :"
+	@wc -l $(C_SOURCES) 2>/dev/null | tail -1 | awk '{print "     " $$1 " lignes"}'
+	@echo "   Lignes de code ASM :"
+	@wc -l $(BOOT_ASM) $(ISR_ASM) 2>/dev/null | tail -1 | awk '{print "     " $$1 " lignes"}'
 
 .PHONY: all dirs clean clean-iso distclean rebuild rebuild-iso check \
         info help iso run run-iso run-debug list
