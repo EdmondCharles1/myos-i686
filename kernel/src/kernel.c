@@ -1,10 +1,12 @@
 /*
- * kernel.c - Code principal du kernel myos-i686 (avec printf)
+ * kernel.c - Code principal du kernel myos-i686
+ * (avec Stack Smashing Protector)
  */
 
 #include <stdint.h>
 #include <stddef.h>
 #include "printf.h"
+#include "stack_protector.h"
 
 // =============================================================================
 // Configuration VGA
@@ -14,14 +16,10 @@
 #define VGA_HEIGHT 25
 #define VGA_MEMORY 0xB8000
 
-// Pointeur vers la mémoire VGA
 volatile uint16_t* vga_buffer = (uint16_t*)VGA_MEMORY;
 
-// Position actuelle du curseur
 static size_t terminal_row = 0;
 static size_t terminal_column = 0;
-
-// Couleur actuelle
 static uint8_t terminal_color = 0x0F;
 
 // =============================================================================
@@ -87,29 +85,33 @@ void terminal_write(const char* data) {
 // =============================================================================
 
 void kernel_main(void) {
+    // IMPORTANT : Initialiser le SSP en PREMIER
+    stack_protector_init();
+    
+    // Puis initialiser le terminal
     terminal_clear();
     
-    // Test de printf
+    // Affichage
     terminal_setcolor(vga_color(15, 1));  // Blanc sur bleu
     printf("========================================\n");
-    printf("       myos-i686 Kernel v0.2 \n");
-    printf("       (avec printf!) \n");
+    printf("       myos-i686 Kernel v0.3\n");
+    printf("       (avec SSP)\n");
     printf("========================================\n\n");
     
     terminal_setcolor(vga_color(10, 0));  // Vert clair
     printf("Hello from printf!\n\n");
     
     terminal_setcolor(vga_color(14, 0));  // Jaune
+    printf("Securite:\n");
+    printf("  Stack Smashing Protector: ACTIF\n");
+    printf("  Canary: 0x%X\n\n", __stack_chk_guard);
+    
     printf("Tests de formatage:\n");
     printf("  Caractere: %c\n", 'A');
     printf("  Chaine: %s\n", "myos-i686");
     printf("  Decimal: %d\n", 42);
     printf("  Negatif: %d\n", -123);
-    printf("  Unsigned: %u\n", 4294967295U);
-    printf("  Hexadecimal: 0x%x\n", 0xDEADBEEF);
-    printf("  Hexadecimal MAJ: 0x%X\n", 0xCAFEBABE);
-    printf("  Pointeur: %p\n", (void*)0xB8000);
-    printf("  Pourcent: 100%%\n\n");
+    printf("  Hexadecimal: 0x%x\n\n", 0xDEADBEEF);
     
     terminal_setcolor(vga_color(11, 0));  // Cyan
     printf("Kernel compile avec i686-elf-gcc\n");
