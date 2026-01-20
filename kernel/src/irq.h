@@ -1,5 +1,5 @@
 /*
- * irq.h - Hardware Interrupt Requests
+ * irq.h - Gestion des IRQ (Interruptions matérielles)
  */
 
 #ifndef IRQ_H
@@ -8,58 +8,33 @@
 #include <stdint.h>
 #include "isr.h"
 
-// =============================================================================
-// Prototypes des stubs assembleur (définis dans isr_asm.asm)
-// =============================================================================
-
-extern void irq0();
-extern void irq1();
-extern void irq2();
-extern void irq3();
-extern void irq4();
-extern void irq5();
-extern void irq6();
-extern void irq7();
-extern void irq8();
-extern void irq9();
-extern void irq10();
-extern void irq11();
-extern void irq12();
-extern void irq13();
-extern void irq14();
-extern void irq15();
-
-// =============================================================================
-// Type pour les handlers d'IRQ
-// =============================================================================
-
-typedef void (*irq_handler_t)(registers_t*);
-
-// =============================================================================
-// API publique
-// =============================================================================
+// Type pour les handlers IRQ
+typedef void (*irq_handler_t)(registers_t* regs);
 
 /**
- * Initialise les IRQs (hardware interrupts)
+ * Initialise le système IRQ
+ * (Remap le PIC et installe les handlers dans l'IDT)
  */
 void irq_init(void);
 
 /**
- * Handler appelé par le stub assembleur
- */
-void irq_handler(registers_t* regs);
-
-/**
- * Enregistre un handler personnalisé pour une IRQ
+ * Enregistre un handler pour une IRQ spécifique
  * 
  * @param irq     Numéro de l'IRQ (0-15)
- * @param handler Fonction handler
+ * @param handler Fonction à appeler lors de l'interruption
  */
 void irq_register_handler(uint8_t irq, irq_handler_t handler);
 
 /**
- * Supprime un handler d'IRQ
+ * Désenregistre un handler IRQ
+ * 
+ * @param irq Numéro de l'IRQ (0-15)
  */
 void irq_unregister_handler(uint8_t irq);
+
+/**
+ * Handler IRQ principal (appelé depuis isr_asm.asm)
+ */
+void irq_handler(registers_t* regs);
 
 #endif // IRQ_H

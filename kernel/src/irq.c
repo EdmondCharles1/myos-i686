@@ -1,5 +1,5 @@
 /*
- * irq.c - Implementation des IRQ handlers
+ * irq.c - Gestion des IRQ (Interruptions matérielles)
  */
 
 #include "irq.h"
@@ -8,69 +8,92 @@
 #include "printf.h"
 
 // =============================================================================
-// Table des handlers IRQ personnalisés
+// Handlers par défaut
 // =============================================================================
 
-static irq_handler_t irq_handlers[16];
+static irq_handler_t irq_handlers[16] = { NULL };
 
 // =============================================================================
-// Implémentation
+// Stubs IRQ (définis dans isr_asm.asm)
+// =============================================================================
+
+extern void irq0(void);
+extern void irq1(void);
+extern void irq2(void);
+extern void irq3(void);
+extern void irq4(void);
+extern void irq5(void);
+extern void irq6(void);
+extern void irq7(void);
+extern void irq8(void);
+extern void irq9(void);
+extern void irq10(void);
+extern void irq11(void);
+extern void irq12(void);
+extern void irq13(void);
+extern void irq14(void);
+extern void irq15(void);
+
+// Table des stubs
+static void (*irq_stub_table[16])(void) = {
+    irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7,
+    irq8, irq9, irq10, irq11, irq12, irq13, irq14, irq15
+};
+
+// =============================================================================
+// Installation d'un handler IRQ dans l'IDT
+// =============================================================================
+
+static void irq_install_handler(uint8_t num, void (*handler)(void)) {
+    idt_set_gate(num, (uint32_t)handler, 0x08, 0x8E);
+}
+
+// =============================================================================
+// Handler IRQ principal (appelé depuis isr_asm.asm)
+// =============================================================================
+
+void irq_handler(registers_t* regs) {
+    // Numéro de l'IRQ (0-15)
+    uint32_t irq_num = regs->int_no - 32;
+    
+    // Appeler le handler enregistré (si existant)
+    if (irq_num < 16 && irq_handlers[irq_num] != NULL) {
+        irq_handlers[irq_num](regs);
+    }
+    
+    // Envoyer EOI (End Of Interrupt) au PIC
+    pic_send_eoi(irq_num);
+}
+
+// =============================================================================
+// API publique
 // =============================================================================
 
 void irq_init(void) {
     printf("[IRQ] Installation des handlers IRQ...\n");
     
-    // Installer les 16 IRQs dans l'IDT (interruptions 32-47)
-    idt_set_gate(32, (uint32_t)irq0,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(33, (uint32_t)irq1,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(34, (uint32_t)irq2,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(35, (uint32_t)irq3,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(36, (uint32_t)irq4,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(37, (uint32_t)irq5,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(38, (uint32_t)irq6,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(39, (uint32_t)irq7,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(40, (uint32_t)irq8,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(41, (uint32_t)irq9,  0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(42, (uint32_t)irq10, 0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(43, (uint32_t)irq11, 0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(44, (uint32_t)irq12, 0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(45, (uint32_t)irq13, 0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(46, (uint32_t)irq14, 0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
-    idt_set_gate(47, (uint32_t)irq15, 0x08, IDT_FLAG_GATE_INT | IDT_FLAG_RING0);
+    // Remap PIC (IRQ 0-15 → INT 32-47)
+    pic_remap(32, 40);
     
-    // Initialiser le PIC
-    pic_init();
-    
-    // Activer les interruptions CPU
-    __asm__ volatile ("sti");
-    
-    printf("[IRQ] IRQs installees et activees\n");
-}
-
-void irq_handler(registers_t* regs) {
-    // Calculer le numéro d'IRQ (0-15)
-    uint8_t irq_num = regs->int_no - 32;
-    
-    // Appeler le handler personnalisé si présent
-    if (irq_handlers[irq_num] != 0) {
-        irq_handler_t handler = irq_handlers[irq_num];
-        handler(regs);
+    // Installer les handlers dans l'IDT
+    for (int i = 0; i < 16; i++) {
+        irq_install_handler(i + 32, irq_stub_table[i]);
     }
     
-    // Envoyer EOI au PIC
-    pic_send_eoi(irq_num);
+    printf("[IRQ] IRQs installees et activees\n");
+    
+    // PAS DE sti ICI !
+    // Les interruptions seront activées plus tard dans kernel_main()
 }
 
 void irq_register_handler(uint8_t irq, irq_handler_t handler) {
     if (irq < 16) {
         irq_handlers[irq] = handler;
-        pic_enable_irq(irq);
     }
 }
 
 void irq_unregister_handler(uint8_t irq) {
     if (irq < 16) {
-        irq_handlers[irq] = 0;
-        pic_disable_irq(irq);
+        irq_handlers[irq] = NULL;
     }
 }

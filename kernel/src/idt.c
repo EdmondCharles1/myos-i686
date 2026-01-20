@@ -1,5 +1,5 @@
 /*
- * idt.c - Implementation de l'IDT
+ * idt.c - Interrupt Descriptor Table
  */
 
 #include "idt.h"
@@ -9,47 +9,47 @@
 // Variables globales
 // =============================================================================
 
-// Table IDT (256 entrées)
-static struct idt_entry idt[IDT_ENTRIES];
-
-// Pointeur IDT
-static struct idt_ptr idtp;
+static idt_entry_t idt[IDT_ENTRIES];
+static idt_ptr_t idt_ptr;
 
 // =============================================================================
-// Fonctions internes
+// Fonction pour charger l'IDT (assembleur inline)
 // =============================================================================
 
-/**
- * Charge l'IDT dans le CPU (assembleur inline)
- */
-extern void idt_load(uint32_t);
+static inline void idt_load(uint32_t idt_ptr_addr) {
+    __asm__ volatile ("lidt (%0)" : : "r"(idt_ptr_addr));
+}
 
 // =============================================================================
 // Implémentation
 // =============================================================================
 
 void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
-    idt[num].base_low = base & 0xFFFF;
-    idt[num].base_high = (base >> 16) & 0xFFFF;
-    idt[num].selector = sel;
+    idt[num].base_lo = base & 0xFFFF;
+    idt[num].base_hi = (base >> 16) & 0xFFFF;
+    idt[num].sel = sel;
     idt[num].always0 = 0;
-    idt[num].flags = flags | IDT_FLAG_PRESENT;
+    idt[num].flags = flags;
 }
 
 void idt_init(void) {
     printf("[IDT] Initialisation de l'IDT...\n");
     
-    // Configurer le pointeur IDT
-    idtp.limit = (sizeof(struct idt_entry) * IDT_ENTRIES) - 1;
-    idtp.base = (uint32_t)&idt;
+    // Initialiser le pointeur IDT
+    idt_ptr.limit = (sizeof(idt_entry_t) * IDT_ENTRIES) - 1;
+    idt_ptr.base = (uint32_t)&idt;
     
-    // Initialiser toutes les entrées à 0
+    // Effacer l'IDT
     for (int i = 0; i < IDT_ENTRIES; i++) {
-        idt_set_gate(i, 0, 0, 0);
+        idt[i].base_lo = 0;
+        idt[i].base_hi = 0;
+        idt[i].sel = 0;
+        idt[i].always0 = 0;
+        idt[i].flags = 0;
     }
     
-    // Charger l'IDT dans le CPU
-    idt_load((uint32_t)&idtp);
+    // Charger l'IDT
+    idt_load((uint32_t)&idt_ptr);
     
     printf("[IDT] IDT chargee avec %d entrees\n", IDT_ENTRIES);
 }

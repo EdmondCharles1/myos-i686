@@ -1,12 +1,12 @@
 /*
- * pic.c - Implementation du PIC 8259
+ * pic.c - Contrôleur d'interruptions programmable (PIC 8259)
  */
 
 #include "pic.h"
 #include "printf.h"
 
 // =============================================================================
-// Fonctions I/O (assembleur inline)
+// Ports I/O
 // =============================================================================
 
 static inline void outb(uint16_t port, uint8_t val) {
@@ -19,43 +19,43 @@ static inline uint8_t inb(uint16_t port) {
     return ret;
 }
 
+// Délai pour laisser le PIC se stabiliser
 static inline void io_wait(void) {
-    outb(0x80, 0);  // Port 0x80 est utilisé pour l'attente I/O
+    outb(0x80, 0);
 }
 
 // =============================================================================
-// Implémentation
+// Fonctions PIC
 // =============================================================================
 
-void pic_init(void) {
-    printf("[PIC] Remappage des IRQs (0-15 -> 32-47)...\n");
+void pic_remap(uint8_t offset1, uint8_t offset2) {
+    printf("[PIC] Remappage des IRQs (%u-15 -> %u-47)...\n", 0, offset1);
     
-    // Sauvegarder les masques
     uint8_t mask1 = inb(PIC1_DATA);
     uint8_t mask2 = inb(PIC2_DATA);
     
-    // Initialisation en cascade (ICW1)
-    outb(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
+    // Initialisation ICW1
+    outb(PIC1_COMMAND, 0x11);
     io_wait();
-    outb(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
-    io_wait();
-    
-    // Vecteurs d'interruption (ICW2)
-    outb(PIC1_DATA, 32);    // PIC maître : IRQ 0-7  -> INT 32-39
-    io_wait();
-    outb(PIC2_DATA, 40);    // PIC esclave : IRQ 8-15 -> INT 40-47
+    outb(PIC2_COMMAND, 0x11);
     io_wait();
     
-    // Configuration de la cascade (ICW3)
-    outb(PIC1_DATA, 0x04);  // PIC maître : IRQ2 = cascade
+    // ICW2 : Vecteurs d'interruption
+    outb(PIC1_DATA, offset1);
     io_wait();
-    outb(PIC2_DATA, 0x02);  // PIC esclave : cascade identity = 2
+    outb(PIC2_DATA, offset2);
     io_wait();
     
-    // Mode 8086 (ICW4)
-    outb(PIC1_DATA, ICW4_8086);
+    // ICW3 : Configuration en cascade
+    outb(PIC1_DATA, 0x04);  // PIC1 : esclave sur IRQ2
     io_wait();
-    outb(PIC2_DATA, ICW4_8086);
+    outb(PIC2_DATA, 0x02);  // PIC2 : identifiant cascade 2
+    io_wait();
+    
+    // ICW4 : Mode 8086
+    outb(PIC1_DATA, 0x01);
+    io_wait();
+    outb(PIC2_DATA, 0x01);
     io_wait();
     
     // Restaurer les masques
@@ -66,28 +66,10 @@ void pic_init(void) {
 }
 
 void pic_send_eoi(uint8_t irq) {
-    // Si l'IRQ vient du PIC esclave, envoyer EOI aux deux PICs
     if (irq >= 8) {
         outb(PIC2_COMMAND, PIC_EOI);
     }
-    
-    // Toujours envoyer EOI au PIC maître
     outb(PIC1_COMMAND, PIC_EOI);
-}
-
-void pic_disable_irq(uint8_t irq) {
-    uint16_t port;
-    uint8_t value;
-    
-    if (irq < 8) {
-        port = PIC1_DATA;
-    } else {
-        port = PIC2_DATA;
-        irq -= 8;
-    }
-    
-    value = inb(port) | (1 << irq);
-    outb(port, value);
 }
 
 void pic_enable_irq(uint8_t irq) {
@@ -102,5 +84,20 @@ void pic_enable_irq(uint8_t irq) {
     }
     
     value = inb(port) & ~(1 << irq);
+    outb(port, value);
+}
+
+void pic_disable_irq(uint8_t irq) {
+    uint16_t port;
+    uint8_t value;
+    
+    if (irq < 8) {
+        port = PIC1_DATA;
+    } else {
+        port = PIC2_DATA;
+        irq -= 8;
+    }
+    
+    value = inb(port) | (1 << irq);
     outb(port, value);
 }
