@@ -4,7 +4,7 @@
 #               Process, Scheduler, Keyboard, Shell
 # =============================================================================
 
-CC      = i686-elf-gcc
+CC      = i686-linux-gnu-gcc
 AS      = nasm
 
 # Répertoires
@@ -15,13 +15,14 @@ DIST         = dist
 
 # Flags du compilateur C
 CFLAGS  = -std=c11 -ffreestanding -O2 -Wall -Wextra -I$(KERNEL_SRC)
-CFLAGS += -fstack-protector-all
+CFLAGS += -fstack-protector-all -fno-pie -fno-pic
 
 # Flags de l'assembleur NASM
 ASFLAGS = -f elf32
 
 # Flags du linker
-LDFLAGS = -T $(KERNEL_SRC)/linker.ld -ffreestanding -nostdlib
+LDFLAGS = -T $(KERNEL_SRC)/linker.ld -ffreestanding -nostdlib -static -no-pie
+LDFLAGS += -Wl,--build-id=none
 
 # Fichiers sources assembleur
 BOOT_ASM = boot.asm
@@ -80,6 +81,21 @@ endif
 # Ajouter shell.c si existe
 ifneq ($(wildcard $(KERNEL_SRC)/shell.c),)
 C_SOURCES += $(KERNEL_SRC)/shell.c
+endif
+
+# Ajouter ipc.c si existe
+ifneq ($(wildcard $(KERNEL_SRC)/ipc.c),)
+C_SOURCES += $(KERNEL_SRC)/ipc.c
+endif
+
+# Ajouter sync.c si existe
+ifneq ($(wildcard $(KERNEL_SRC)/sync.c),)
+C_SOURCES += $(KERNEL_SRC)/sync.c
+endif
+
+# Ajouter memory.c si existe
+ifneq ($(wildcard $(KERNEL_SRC)/memory.c),)
+C_SOURCES += $(KERNEL_SRC)/memory.c
 endif
 
 # Fichiers objets
