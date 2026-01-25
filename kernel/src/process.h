@@ -7,7 +7,13 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "types.h"
+
+// Définition de bool si nécessaire (pas de stdbool.h en bare-metal)
+#ifndef __cplusplus
+typedef _Bool bool;
+#define true 1
+#define false 0
+#endif
 
 // =============================================================================
 // Constantes

@@ -15,9 +15,6 @@
 #include "scheduler.h"
 #include "keyboard.h"
 #include "shell.h"
-#include "ipc.h"
-#include "sync.h"
-#include "memory.h"
 
 // =============================================================================
 // Configuration VGA
@@ -173,18 +170,9 @@ void kernel_main(void) {
     // Keyboard
     keyboard_init();
     
-    // Memory
-    memory_init();
-
-    // IPC
-    ipc_init();
-
-    // Sync
-    sync_init();
-
     // Shell
     shell_init();
-
+    
     printf("\n");
     terminal_setcolor(vga_color(10, 0));
     printf("Systeme initialise avec succes!\n\n");
