@@ -16,6 +16,9 @@ typedef enum {
     SCHEDULER_FCFS,         // First Come First Served (non préemptif)
     SCHEDULER_ROUND_ROBIN,  // Round Robin (préemptif avec quantum)
     SCHEDULER_PRIORITY,     // Par priorité (préemptif)
+    SCHEDULER_SJF,          // Shortest Job First (non préemptif)
+    SCHEDULER_SRTF,         // Shortest Remaining Time First (préemptif)
+    SCHEDULER_MLFQ,         // Multi-Level Feedback Queue
 } scheduler_type_t;
 
 // =============================================================================

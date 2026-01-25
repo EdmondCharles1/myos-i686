@@ -5,8 +5,7 @@
 #include "timer.h"
 #include "irq.h"
 #include "printf.h"
-#include <stdint.h>
-#include <stdbool.h>
+#include "types.h"
 
 // =============================================================================
 // Ports I/O du PIT

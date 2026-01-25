@@ -4,20 +4,31 @@ SECTIONS
 {
     . = 1M;
 
-    .text : {
+    /* Le header Multiboot DOIT être dans les premiers 8KB */
+    .text BLOCK(4K) : ALIGN(4K) {
+        *(.multiboot)
         *(.text)
     }
 
-    .rodata : {
+    .rodata BLOCK(4K) : ALIGN(4K) {
         *(.rodata)
+        *(.rodata.*)
     }
 
-    .data : {
+    .data BLOCK(4K) : ALIGN(4K) {
         *(.data)
     }
 
-    .bss : {
+    .bss BLOCK(4K) : ALIGN(4K) {
         *(COMMON)
         *(.bss)
+        *(.bss.*)
+    }
+
+    /* Ignorer les sections inutiles */
+    /DISCARD/ : {
+        *(.note*)
+        *(.eh_frame*)
+        *(.comment)
     }
 }
