@@ -82,6 +82,21 @@ ifneq ($(wildcard $(KERNEL_SRC)/shell.c),)
 C_SOURCES += $(KERNEL_SRC)/shell.c
 endif
 
+# Ajouter memory.c si existe
+ifneq ($(wildcard $(KERNEL_SRC)/memory.c),)
+C_SOURCES += $(KERNEL_SRC)/memory.c
+endif
+
+# Ajouter ipc.c si existe
+ifneq ($(wildcard $(KERNEL_SRC)/ipc.c),)
+C_SOURCES += $(KERNEL_SRC)/ipc.c
+endif
+
+# Ajouter sync.c si existe
+ifneq ($(wildcard $(KERNEL_SRC)/sync.c),)
+C_SOURCES += $(KERNEL_SRC)/sync.c
+endif
+
 # Fichiers objets
 BOOT_O    = $(KERNEL_BUILD)/boot.o
 C_OBJS    = $(patsubst $(KERNEL_SRC)/%.c, $(KERNEL_BUILD)/%.o, $(C_SOURCES))
@@ -143,7 +158,10 @@ $(KERNEL_BIN): $(OBJS)
 	@test -f $(KERNEL_SRC)/process.c && echo "  ✓ Process Manager (PCB + 32 slots)" || true
 	@test -f $(KERNEL_SRC)/scheduler.c && echo "  ✓ Scheduler (FCFS + Round Robin)" || true
 	@test -f $(KERNEL_SRC)/keyboard.c && echo "  ✓ Keyboard Driver (PS/2 IRQ1)" || true
-	@test -f $(KERNEL_SRC)/shell.c && echo "  ✓ Mini-Shell (10 commandes)" || true
+	@test -f $(KERNEL_SRC)/shell.c && echo "  ✓ Mini-Shell (commandes completes)" || true
+	@test -f $(KERNEL_SRC)/memory.c && echo "  ✓ Memory Manager (64KB pool)" || true
+	@test -f $(KERNEL_SRC)/ipc.c && echo "  ✓ IPC (Mailboxes)" || true
+	@test -f $(KERNEL_SRC)/sync.c && echo "  ✓ Sync (Mutex + Semaphores)" || true
 	@echo ""
 
 # =============================================================================

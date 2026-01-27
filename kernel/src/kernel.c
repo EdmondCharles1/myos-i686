@@ -1,6 +1,6 @@
 /*
  * kernel.c - Code principal du kernel myos-i686
- * Version FINALE avec Shell + Curseur
+ * Version COMPLETE avec tous les modules
  */
 
 #include <stdint.h>
@@ -15,6 +15,9 @@
 #include "scheduler.h"
 #include "keyboard.h"
 #include "shell.h"
+#include "memory.h"
+#include "ipc.h"
+#include "sync.h"
 
 // =============================================================================
 // Configuration VGA
@@ -142,8 +145,8 @@ void kernel_main(void) {
     // En-tête
     terminal_setcolor(vga_color(15, 1));
     printf("========================================\n");
-    printf("    myos-i686 Kernel v0.7\n");
-    printf("    (Mini-Shell interactif)\n");
+    printf("    myos-i686 Kernel v0.8\n");
+    printf("    OS Complet (Ordonnancement, IPC, Sync)\n");
     printf("========================================\n\n");
     
     terminal_setcolor(vga_color(14, 0));
@@ -169,7 +172,16 @@ void kernel_main(void) {
     
     // Keyboard
     keyboard_init();
-    
+
+    // Memory
+    memory_init();
+
+    // IPC
+    ipc_init();
+
+    // Sync
+    sync_init();
+
     // Shell
     shell_init();
     

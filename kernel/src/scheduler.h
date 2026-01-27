@@ -16,6 +16,9 @@ typedef enum {
     SCHEDULER_FCFS,         // First Come First Served (non préemptif)
     SCHEDULER_ROUND_ROBIN,  // Round Robin (préemptif avec quantum)
     SCHEDULER_PRIORITY,     // Par priorité (préemptif)
+    SCHEDULER_SJF,          // Shortest Job First (non préemptif)
+    SCHEDULER_SRTF,         // Shortest Remaining Time First (préemptif)
+    SCHEDULER_MLFQ,         // Multi-Level Feedback Queue
 } scheduler_type_t;
 
 // =============================================================================
@@ -131,5 +134,45 @@ process_t* queue_peek(process_queue_t* queue);
  * Vérifie si la file est vide
  */
 bool queue_is_empty(process_queue_t* queue);
+
+// =============================================================================
+// MLFQ (Multi-Level Feedback Queue) - Constantes
+// =============================================================================
+
+#define MLFQ_LEVELS         3       // Nombre de niveaux dans MLFQ
+#define MLFQ_QUANTUM_0      5       // Quantum niveau 0 (haute priorité)
+#define MLFQ_QUANTUM_1      10      // Quantum niveau 1 (moyenne priorité)
+#define MLFQ_QUANTUM_2      20      // Quantum niveau 2 (basse priorité)
+#define MLFQ_BOOST_INTERVAL 500     // Intervalle de boost (ticks)
+#define MLFQ_ALLOTMENT      30      // Temps alloué avant demotion
+
+// =============================================================================
+// Fonctions avancées de l'ordonnanceur
+// =============================================================================
+
+/**
+ * Bloque un processus (l'enlève de la file READY)
+ */
+void scheduler_block_process(process_t* process);
+
+/**
+ * Débloque un processus (le remet dans la file READY)
+ */
+void scheduler_unblock_process(process_t* process);
+
+/**
+ * Retourne le processus actuellement en exécution
+ */
+process_t* scheduler_get_current(void);
+
+/**
+ * Affiche les statistiques de l'ordonnanceur
+ */
+void scheduler_print_stats(void);
+
+/**
+ * Effectue un boost MLFQ (remonte tous les processus au niveau 0)
+ */
+void scheduler_mlfq_boost(void);
 
 #endif // SCHEDULER_H

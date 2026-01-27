@@ -77,14 +77,35 @@ typedef struct process {
     uint64_t start_tick;            // Tick de démarrage
     uint32_t time_slice;            // Quantum de temps (pour Round Robin)
     uint32_t remaining_slice;       // Temps restant dans le quantum
-    
+
+    // Champs pour SJF/SRTF
+    uint32_t burst_time;            // Temps d'exécution estimé (pour SJF)
+    uint32_t remaining_time;        // Temps restant (pour SRTF)
+    uint32_t arrival_time;          // Temps d'arrivée (tick)
+
+    // Champs pour MLFQ
+    uint32_t mlfq_level;            // Niveau dans MLFQ (0=haute, 2=basse)
+    uint32_t mlfq_allotment;        // Temps alloué au niveau actuel
+
+    // Champs pour blocage/réveil
+    uint32_t block_reason;          // Raison du blocage (IPC, mutex, etc.)
+    void* block_resource;           // Ressource sur laquelle on attend
+
     // Relations
     uint32_t parent_pid;            // PID du processus parent (0 si aucun)
-    
+
     // Liste chaînée (pour les files de processus)
     struct process* next;           // Processus suivant dans la file
-    
+
 } process_t;
+
+// Raisons de blocage
+#define BLOCK_REASON_NONE       0
+#define BLOCK_REASON_SLEEP      1
+#define BLOCK_REASON_MUTEX      2
+#define BLOCK_REASON_SEM        3
+#define BLOCK_REASON_MBOX_FULL  4
+#define BLOCK_REASON_MBOX_EMPTY 5
 
 // =============================================================================
 // API publique
