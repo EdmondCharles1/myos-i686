@@ -145,14 +145,27 @@ uint32_t process_create(const char* name, void (*entry)(void), uint32_t priority
     process->start_tick = timer_get_ticks();
     process->time_slice = 10;  // 10 ticks par défaut (100ms à 100Hz)
     process->remaining_slice = process->time_slice;
-    
+
+    // Champs pour SJF/SRTF (valeurs par défaut)
+    process->burst_time = 50;       // Estimation par défaut
+    process->remaining_time = 50;
+    process->arrival_time = (uint32_t)timer_get_ticks();
+
+    // Champs pour MLFQ
+    process->mlfq_level = 0;
+    process->mlfq_allotment = 30;
+
+    // Champs de blocage
+    process->block_reason = 0;
+    process->block_resource = NULL;
+
     // Relations
     if (current_process != NULL) {
         process->parent_pid = current_process->pid;
     } else {
         process->parent_pid = 0;
     }
-    
+
     process->next = NULL;
     
     // Passer à l'état READY
