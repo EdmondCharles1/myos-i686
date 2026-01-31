@@ -50,6 +50,7 @@ static bool shift_pressed = false;
 static bool ctrl_pressed = false;
 static bool alt_pressed = false;
 static bool caps_lock = false;
+static bool extended_scancode = false;  // Flag pour scancodes etendus (0xE0)
 
 // Compteur de debug
 static volatile uint32_t irq_count = 0;
@@ -87,15 +88,48 @@ static char buffer_get(void) {
 
 static void keyboard_handler(registers_t* regs) {
     (void)regs;
-    
+
     irq_count++;
-    
+
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
-    
+
+    // Detecter le prefixe de scancode etendu
+    if (scancode == 0xE0) {
+        extended_scancode = true;
+        return;
+    }
+
+    // Traiter les scancodes etendus (fleches, etc.)
+    if (extended_scancode) {
+        extended_scancode = false;
+
+        // Key released (bit 7 set) - ignorer pour les touches etendues
+        if (scancode & 0x80) {
+            return;
+        }
+
+        // Gerer les fleches
+        switch (scancode) {
+            case KEY_EXT_UP:
+                buffer_put(CHAR_ARROW_UP);
+                return;
+            case KEY_EXT_DOWN:
+                buffer_put(CHAR_ARROW_DOWN);
+                return;
+            case KEY_EXT_LEFT:
+                buffer_put(CHAR_ARROW_LEFT);
+                return;
+            case KEY_EXT_RIGHT:
+                buffer_put(CHAR_ARROW_RIGHT);
+                return;
+        }
+        return;
+    }
+
     // Key released (bit 7 set)
     if (scancode & 0x80) {
         scancode &= 0x7F;
-        
+
         if (scancode == KEY_LSHIFT || scancode == KEY_RSHIFT) {
             shift_pressed = false;
         } else if (scancode == KEY_CTRL) {
@@ -105,7 +139,7 @@ static void keyboard_handler(registers_t* regs) {
         }
         return;
     }
-    
+
     // Key pressed
     if (scancode == KEY_LSHIFT || scancode == KEY_RSHIFT) {
         shift_pressed = true;
@@ -120,20 +154,20 @@ static void keyboard_handler(registers_t* regs) {
         caps_lock = !caps_lock;
         return;
     }
-    
+
     // Convertir en ASCII
     char c = 0;
-    
+
     if (shift_pressed) {
         c = scancode_to_ascii_shift[scancode];
     } else {
         c = scancode_to_ascii[scancode];
-        
+
         if (caps_lock && c >= 'a' && c <= 'z') {
             c = c - 'a' + 'A';
         }
     }
-    
+
     if (c != 0) {
         buffer_put(c);
     }

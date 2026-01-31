@@ -25,6 +25,17 @@ static uint32_t input_pos = 0;
 static char* argv_buffer[SHELL_MAX_ARGS];
 
 // =============================================================================
+// Historique des commandes
+// =============================================================================
+
+#define HISTORY_SIZE 16
+
+static char history[HISTORY_SIZE][SHELL_BUFFER_SIZE];
+static uint32_t history_count = 0;      // Nombre de commandes dans l'historique
+static uint32_t history_index = 0;      // Position actuelle dans l'historique
+static uint32_t history_write_pos = 0;  // Prochaine position d'ecriture (circulaire)
+
+// =============================================================================
 // Fonctions utilitaires
 // =============================================================================
 
@@ -51,6 +62,86 @@ static uint32_t string_to_uint(const char* str) {
         str++;
     }
     return result;
+}
+
+static uint32_t string_length(const char* str) {
+    uint32_t len = 0;
+    while (str[len] != '\0') {
+        len++;
+    }
+    return len;
+}
+
+// =============================================================================
+// Fonctions d'historique
+// =============================================================================
+
+static void history_add(const char* cmd) {
+    // Ne pas ajouter les commandes vides
+    if (cmd[0] == '\0') {
+        return;
+    }
+
+    // Copier la commande dans l'historique
+    string_copy_n(history[history_write_pos], cmd, SHELL_BUFFER_SIZE);
+
+    // Avancer la position d'ecriture (circulaire)
+    history_write_pos = (history_write_pos + 1) % HISTORY_SIZE;
+
+    // Mettre a jour le compteur
+    if (history_count < HISTORY_SIZE) {
+        history_count++;
+    }
+
+    // Reinitialiser l'index de navigation
+    history_index = history_count;
+}
+
+static const char* history_get_prev(void) {
+    if (history_count == 0) {
+        return NULL;
+    }
+
+    if (history_index > 0) {
+        history_index--;
+    }
+
+    // Calculer la position reelle dans le buffer circulaire
+    uint32_t pos;
+    if (history_count < HISTORY_SIZE) {
+        pos = history_index;
+    } else {
+        pos = (history_write_pos + history_index) % HISTORY_SIZE;
+    }
+
+    return history[pos];
+}
+
+static const char* history_get_next(void) {
+    if (history_count == 0 || history_index >= history_count) {
+        return NULL;
+    }
+
+    history_index++;
+
+    if (history_index >= history_count) {
+        // Retourner une chaine vide pour effacer la ligne
+        return "";
+    }
+
+    // Calculer la position reelle dans le buffer circulaire
+    uint32_t pos;
+    if (history_count < HISTORY_SIZE) {
+        pos = history_index;
+    } else {
+        pos = (history_write_pos + history_index) % HISTORY_SIZE;
+    }
+
+    return history[pos];
+}
+
+static void history_reset_navigation(void) {
+    history_index = history_count;
 }
 
 static int parse_command(char* input, char** argv, int max_args) {
@@ -169,7 +260,7 @@ static void cmd_clear(int argc, char** argv) {
 
     extern void terminal_clear(void);
     terminal_clear();
-    printf("myos-i686 shell > ");
+    // Ne pas afficher le prompt ici - il sera affiche par shell_run()
 }
 
 static void cmd_ps(int argc, char** argv) {
@@ -765,6 +856,14 @@ void shell_init(void) {
         input_buffer[i] = 0;
     }
 
+    // Initialiser l'historique
+    history_count = 0;
+    history_index = 0;
+    history_write_pos = 0;
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+        history[i][0] = '\0';
+    }
+
     printf("[SHELL] Shell initialise\n");
 }
 
@@ -789,6 +888,22 @@ void shell_execute(const char* command) {
     printf("Tapez 'help' pour la liste des commandes\n");
 }
 
+// Efface la ligne de commande actuelle et affiche une nouvelle commande
+static void shell_replace_line(const char* new_cmd) {
+    // Effacer les caracteres affiches
+    while (input_pos > 0) {
+        printf("\b \b");
+        input_pos--;
+    }
+
+    // Copier la nouvelle commande
+    string_copy_n(input_buffer, new_cmd, SHELL_BUFFER_SIZE);
+    input_pos = string_length(input_buffer);
+
+    // Afficher la nouvelle commande
+    printf("%s", input_buffer);
+}
+
 void shell_run(void) {
     printf("\n");
     printf("============================================================\n");
@@ -798,7 +913,8 @@ void shell_run(void) {
     printf("        gestion memoire, IPC et synchronisation            \n");
     printf("============================================================\n");
     printf("\n");
-    printf("Tapez 'help' pour la liste des commandes\n\n");
+    printf("Tapez 'help' pour la liste des commandes\n");
+    printf("Utilisez les fleches haut/bas pour l'historique\n\n");
 
     printf("myos-i686 shell > ");
 
@@ -811,13 +927,17 @@ void shell_run(void) {
             input_buffer[input_pos] = '\0';
 
             if (input_pos > 0) {
+                // Ajouter a l'historique avant d'executer
+                history_add(input_buffer);
                 shell_execute(input_buffer);
             }
 
+            // Reinitialiser pour la prochaine commande
             input_pos = 0;
             for (int i = 0; i < SHELL_BUFFER_SIZE; i++) {
                 input_buffer[i] = 0;
             }
+            history_reset_navigation();
 
             printf("myos-i686 shell > ");
 
@@ -826,6 +946,20 @@ void shell_run(void) {
                 input_pos--;
                 input_buffer[input_pos] = '\0';
                 printf("\b \b");
+            }
+
+        } else if (c == CHAR_ARROW_UP) {
+            // Fleche haut: commande precedente
+            const char* prev = history_get_prev();
+            if (prev != NULL) {
+                shell_replace_line(prev);
+            }
+
+        } else if (c == CHAR_ARROW_DOWN) {
+            // Fleche bas: commande suivante
+            const char* next = history_get_next();
+            if (next != NULL) {
+                shell_replace_line(next);
             }
 
         } else if (c >= 32 && c < 127) {
