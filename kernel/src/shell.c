@@ -531,7 +531,7 @@ static void cmd_states(int argc, char** argv) {
     printf("1. Processus cree (PID=%u): etat=%s\n", pid, process_state_to_string(p->state));
 
     // Ajouter a la file READY
-    scheduler_add_process(p);
+    //scheduler_add_process(p);
     printf("2. Ajoute a la file:        etat=%s\n", process_state_to_string(p->state));
 
     printf("\nUtilisez 'block %u' puis 'unblock %u' pour tester BLOCKED\n", pid, pid);

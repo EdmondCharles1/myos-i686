@@ -253,6 +253,7 @@ void process_list(void) {
             
             process_t* p = &process_table[i];
             
+            //printf("    %u |                %s|          %s | %u | %u\n",
             printf("%-4u | %-16s | %-10s | %-8u | %u\n",
                    p->pid,
                    p->name,
