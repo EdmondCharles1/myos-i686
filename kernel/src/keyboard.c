@@ -108,7 +108,7 @@ static void keyboard_handler(registers_t* regs) {
             return;
         }
 
-        // Gerer les fleches
+        // Gerer les touches etendues (fleches, Page Up/Down, Home, End)
         switch (scancode) {
             case KEY_EXT_UP:
                 buffer_put(CHAR_ARROW_UP);
@@ -121,6 +121,18 @@ static void keyboard_handler(registers_t* regs) {
                 return;
             case KEY_EXT_RIGHT:
                 buffer_put(CHAR_ARROW_RIGHT);
+                return;
+            case KEY_EXT_PGUP:
+                buffer_put(CHAR_PAGE_UP);
+                return;
+            case KEY_EXT_PGDN:
+                buffer_put(CHAR_PAGE_DOWN);
+                return;
+            case KEY_EXT_HOME:
+                buffer_put(CHAR_HOME);
+                return;
+            case KEY_EXT_END:
+                buffer_put(CHAR_END);
                 return;
         }
         return;
