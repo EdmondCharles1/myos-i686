@@ -33,12 +33,20 @@
 #define KEY_EXT_DOWN    0x50
 #define KEY_EXT_LEFT    0x4B
 #define KEY_EXT_RIGHT   0x4D
+#define KEY_EXT_PGUP    0x49
+#define KEY_EXT_PGDN    0x51
+#define KEY_EXT_HOME    0x47
+#define KEY_EXT_END     0x4F
 
 // Caracteres speciaux retournes pour les fleches (codes non-ASCII)
 #define CHAR_ARROW_UP    0x80
 #define CHAR_ARROW_DOWN  0x81
 #define CHAR_ARROW_LEFT  0x82
 #define CHAR_ARROW_RIGHT 0x83
+#define CHAR_PAGE_UP     0x84
+#define CHAR_PAGE_DOWN   0x85
+#define CHAR_HOME        0x86
+#define CHAR_END         0x87
 
 void keyboard_init(void);
 char keyboard_getchar(void);

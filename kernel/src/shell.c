@@ -904,14 +904,24 @@ static void shell_replace_line(const char* new_cmd) {
     printf("%s", input_buffer);
 }
 
+// Declaration des fonctions de scrollback du terminal (definies dans kernel.c)
+extern void terminal_scroll_up(size_t lines);
+extern void terminal_scroll_down(size_t lines);
+extern void terminal_scroll_to_top(void);
+extern void terminal_scroll_to_bottom(void);
+
 void shell_run(void) {
     printf("\n");
-    printf("============================================================\n");
-    printf("         Bienvenue dans myos-i686 Mini-Shell v0.8          \n");
-    printf("============================================================\n");
+    printf("=========================================================\n");
+    printf("        Bienvenue dans myos-i686 Mini-Shell v0.9        \n");
+    printf("=========================================================\n");
+    printf("       OS complet avec ordonnancement avance,           \n");
+    printf("       gestion memoire, IPC et synchronisation          \n");
+    printf("=========================================================\n");
     printf("\n");
     printf("Tapez 'help' pour la liste des commandes\n");
-    printf("Utilisez les fleches haut/bas pour l'historique\n\n");
+    printf("Fleches haut/bas: historique des commandes\n");
+    printf("Page Up/Down: defiler l'ecran | Home/End: debut/fin\n\n");
 
     printf("myos-i686 shell > ");
 
@@ -946,18 +956,34 @@ void shell_run(void) {
             }
 
         } else if (c == CHAR_ARROW_UP) {
-            // Fleche haut: commande precedente
+            // Fleche haut: commande precedente dans l'historique
             const char* prev = history_get_prev();
             if (prev != NULL) {
                 shell_replace_line(prev);
             }
 
         } else if (c == CHAR_ARROW_DOWN) {
-            // Fleche bas: commande suivante
+            // Fleche bas: commande suivante dans l'historique
             const char* next = history_get_next();
             if (next != NULL) {
                 shell_replace_line(next);
             }
+
+        } else if (c == CHAR_PAGE_UP) {
+            // Page Up: remonter dans l'historique de l'ecran (10 lignes)
+            terminal_scroll_up(10);
+
+        } else if (c == CHAR_PAGE_DOWN) {
+            // Page Down: descendre dans l'historique de l'ecran (10 lignes)
+            terminal_scroll_down(10);
+
+        } else if (c == CHAR_HOME) {
+            // Home: aller au debut de l'historique
+            terminal_scroll_to_top();
+
+        } else if (c == CHAR_END) {
+            // End: aller a la fin (vue actuelle)
+            terminal_scroll_to_bottom();
 
         } else if (c >= 32 && c < 127) {
             if (input_pos < SHELL_BUFFER_SIZE - 1) {
