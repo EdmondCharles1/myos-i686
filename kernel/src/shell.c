@@ -794,9 +794,6 @@ void shell_run(void) {
     printf("============================================================\n");
     printf("         Bienvenue dans myos-i686 Mini-Shell v0.8          \n");
     printf("============================================================\n");
-    printf("        OS complet avec ordonnancement avance,             \n");
-    printf("        gestion memoire, IPC et synchronisation            \n");
-    printf("============================================================\n");
     printf("\n");
     printf("Tapez 'help' pour la liste des commandes\n\n");
 
