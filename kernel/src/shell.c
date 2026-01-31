@@ -913,7 +913,7 @@ extern void terminal_scroll_to_bottom(void);
 void shell_run(void) {
     printf("\n");
     printf("=========================================================\n");
-    printf("        Bienvenue dans myos-i686 Mini-Shell v0.9        \n");
+    printf("       Bienvenue dans myos-i686 Mini-Shell v0.9        \n");
     printf("=========================================================\n");
     printf("       OS complet avec ordonnancement avance,           \n");
     printf("       gestion memoire, IPC et synchronisation          \n");
@@ -926,7 +926,7 @@ void shell_run(void) {
     printf("myos-i686 shell > ");
 
     while (1) {
-        char c = keyboard_getchar();
+         unsigned char c = keyboard_getchar();
 
         if (c == '\n') {
             printf("\n");

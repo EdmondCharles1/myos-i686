@@ -90,7 +90,7 @@ static inline uint8_t vga_color(uint8_t fg, uint8_t bg) {
 /**
  * Convertit une ligne relative (0 = plus ancienne visible) en index du buffer circulaire
  */
-static size_t scrollback_get_buffer_index(size_t relative_line) {
+/*static size_t scrollback_get_buffer_index(size_t relative_line) {
     if (scrollback_total_lines <= SCROLLBACK_LINES) {
         // Buffer pas encore plein
         return relative_line;
@@ -98,7 +98,7 @@ static size_t scrollback_get_buffer_index(size_t relative_line) {
         // Buffer circulaire plein
         return (scrollback_write_line + relative_line) % SCROLLBACK_LINES;
     }
-}
+}*/
 
 /**
  * Retourne le nombre de lignes disponibles dans l'historique
@@ -582,7 +582,7 @@ void kernel_main(void) {
     __asm__ volatile ("sti");
     
     printf("Interruptions activees!\n\n");
-    
+
     // Attendre stabilisation
     for (volatile int i = 0; i < 10000000; i++);
     
