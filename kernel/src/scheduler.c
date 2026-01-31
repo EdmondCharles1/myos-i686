@@ -686,3 +686,162 @@ const char* scheduler_type_to_string(scheduler_type_t type) {
         default:                    return "Unknown";
     }
 }
+
+// =============================================================================
+// Simulation d'ordonnancement
+// =============================================================================
+
+void scheduler_simulate(uint32_t ticks) {
+    printf("\n=== Simulation d'ordonnancement (%s) ===\n", scheduler_type_to_string(current_scheduler));
+    printf("Simulation de %u ticks...\n\n", ticks);
+
+    // Reinitialiser le journal
+    exec_log_index = 0;
+    total_context_switches = 0;
+
+    // Sauvegarder l'etat actuel
+    process_t* saved_current = current_process;
+    current_process = NULL;
+
+    // Simuler les ticks
+    uint64_t sim_tick = 0;
+
+    for (uint32_t t = 0; t < ticks; t++) {
+        sim_tick++;
+
+        // Si pas de processus courant, en choisir un
+        if (current_process == NULL) {
+            current_process = select_next_process();
+            if (current_process != NULL) {
+                current_process->state = PROCESS_STATE_RUNNING;
+                current_process->remaining_slice = current_process->time_slice;
+                current_process->start_tick = sim_tick;
+            }
+            continue;
+        }
+
+        // Incrementer les compteurs
+        current_process->total_ticks++;
+        current_process->remaining_slice--;
+
+        if (current_scheduler == SCHEDULER_SRTF && current_process->remaining_time > 0) {
+            current_process->remaining_time--;
+        }
+
+        if (current_scheduler == SCHEDULER_MLFQ && current_process->mlfq_allotment > 0) {
+            current_process->mlfq_allotment--;
+        }
+
+        // Verifier si on doit changer
+        bool should_switch = false;
+        bool preempt_better = false;
+
+        switch (current_scheduler) {
+            case SCHEDULER_FCFS:
+                // Terminer quand remaining_time = 0
+                if (current_process->remaining_time == 0) {
+                    should_switch = true;
+                }
+                break;
+
+            case SCHEDULER_ROUND_ROBIN:
+                if (current_process->remaining_slice == 0) {
+                    should_switch = true;
+                }
+                break;
+
+            case SCHEDULER_PRIORITY: {
+                process_t* best = find_highest_priority(&ready_queue);
+                if (best != NULL && best->priority > current_process->priority) {
+                    preempt_better = true;
+                    should_switch = true;
+                }
+                // Aussi changer si quantum epuise
+                if (current_process->remaining_slice == 0) {
+                    should_switch = true;
+                }
+                break;
+            }
+
+            case SCHEDULER_SJF:
+                if (current_process->remaining_time == 0) {
+                    should_switch = true;
+                }
+                break;
+
+            case SCHEDULER_SRTF: {
+                process_t* best = find_shortest_remaining(&ready_queue);
+                if (best != NULL && best->remaining_time < current_process->remaining_time) {
+                    preempt_better = true;
+                    should_switch = true;
+                }
+                if (current_process->remaining_time == 0) {
+                    should_switch = true;
+                }
+                break;
+            }
+
+            case SCHEDULER_MLFQ:
+                if (current_process->remaining_slice == 0) {
+                    should_switch = true;
+                }
+                break;
+        }
+
+        // Context switch si necessaire
+        if (should_switch) {
+            bool has_waiting = false;
+            if (current_scheduler == SCHEDULER_MLFQ) {
+                for (int i = 0; i < MLFQ_LEVELS; i++) {
+                    if (!queue_is_empty(&mlfq_queues[i])) {
+                        has_waiting = true;
+                        break;
+                    }
+                }
+            } else {
+                has_waiting = !queue_is_empty(&ready_queue);
+            }
+
+            if (!has_waiting && current_process->remaining_time > 0) {
+                current_process->remaining_slice = current_process->time_slice;
+                continue;
+            }
+
+            // Logger l'execution
+            log_execution(current_process, current_process->start_tick, sim_tick);
+            total_context_switches++;
+
+            // Remettre en file si pas termine
+            process_t* old = current_process;
+            if (old->remaining_time > 0) {
+                old->state = PROCESS_STATE_READY;
+                if (current_scheduler == SCHEDULER_MLFQ) {
+                    queue_enqueue(&mlfq_queues[old->mlfq_level], old);
+                } else {
+                    queue_enqueue(&ready_queue, old);
+                }
+            } else {
+                old->state = PROCESS_STATE_TERMINATED;
+                printf("  [Tick %u] Processus '%s' termine\n", (uint32_t)sim_tick, old->name);
+            }
+
+            // Choisir le suivant
+            current_process = select_next_process();
+            if (current_process != NULL) {
+                current_process->state = PROCESS_STATE_RUNNING;
+                current_process->remaining_slice = current_process->time_slice;
+                current_process->start_tick = sim_tick;
+            }
+        }
+    }
+
+    // Log final si un processus etait en cours
+    if (current_process != NULL) {
+        log_execution(current_process, current_process->start_tick, sim_tick);
+    }
+
+    printf("\nSimulation terminee. Utilisez 'log' pour voir le journal.\n");
+
+    // Restaurer l'etat
+    current_process = saved_current;
+}

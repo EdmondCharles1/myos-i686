@@ -175,4 +175,10 @@ void scheduler_print_stats(void);
  */
 void scheduler_mlfq_boost(void);
 
+/**
+ * Simule l'execution des processus et remplit le journal
+ * @param ticks Nombre de ticks a simuler
+ */
+void scheduler_simulate(uint32_t ticks);
+
 #endif // SCHEDULER_H

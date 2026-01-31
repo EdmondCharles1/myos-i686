@@ -505,7 +505,23 @@ static void cmd_demo(int argc, char** argv) {
     printf("  queue  - voir la file READY\n");
     printf("  log    - voir le journal\n");
     printf("  sched <type> - changer d'ordonnanceur\n");
+    printf("  simulate <ticks> - simuler l'ordonnancement\n");
     printf("\n");
+}
+
+// Declaration externe
+extern void scheduler_simulate(uint32_t ticks);
+
+static void cmd_simulate(int argc, char** argv) {
+    uint32_t ticks = 100;  // Par defaut: 100 ticks
+
+    if (argc >= 2) {
+        ticks = string_to_uint(argv[1]);
+        if (ticks == 0) ticks = 100;
+        if (ticks > 1000) ticks = 1000;  // Limite max
+    }
+
+    scheduler_simulate(ticks);
 }
 
 static void cmd_states(int argc, char** argv) {
@@ -829,6 +845,7 @@ static const shell_command_t builtin_commands[] = {
     { "sched",   "Change l'ordonnanceur",            cmd_sched },
     { "log",     "Journal d'execution",              cmd_log },
     { "queue",   "Affiche la file READY",            cmd_queue },
+    { "simulate","Simule l'ordonnancement",          cmd_simulate },
 
     // Memoire
     { "mem",     "Gestion memoire",                  cmd_mem },
