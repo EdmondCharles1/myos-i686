@@ -366,34 +366,6 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
     }
 }
 
-/**
- * Scrolling: Fait remonter tout l'ecran d'une ligne
- * - La premiere ligne disparait
- * - Les autres lignes remontent
- * - La derniere ligne est videe
- */
-void terminal_scroll(void) {
-    // Copier chaque ligne vers la ligne precedente (lignes 1 a 24 -> lignes 0 a 23)
-    for (size_t y = 1; y < VGA_HEIGHT; y++) {
-        for (size_t x = 0; x < VGA_WIDTH; x++) {
-            const size_t src_index = y * VGA_WIDTH + x;
-            const size_t dst_index = (y - 1) * VGA_WIDTH + x;
-            vga_buffer[dst_index] = vga_buffer[src_index];
-        }
-    }
-
-    // Vider la derniere ligne (ligne 24)
-    for (size_t x = 0; x < VGA_WIDTH; x++) {
-        const size_t index = (VGA_HEIGHT - 1) * VGA_WIDTH + x;
-        vga_buffer[index] = vga_entry(' ', terminal_color);
-    }
-}
-
-/**
- * Passe a la ligne suivante avec gestion du scrolling
- * - Line Wrapping: retour a la colonne 0
- * - Scrolling: si on depasse la ligne 25, l'ecran remonte
- */
 void terminal_newline(void) {
     terminal_column = 0;
     terminal_row++;
