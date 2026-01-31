@@ -366,6 +366,34 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
     }
 }
 
+/**
+ * Scrolling: Fait remonter tout l'ecran d'une ligne
+ * - La premiere ligne disparait
+ * - Les autres lignes remontent
+ * - La derniere ligne est videe
+ */
+void terminal_scroll(void) {
+    // Copier chaque ligne vers la ligne precedente (lignes 1 a 24 -> lignes 0 a 23)
+    for (size_t y = 1; y < VGA_HEIGHT; y++) {
+        for (size_t x = 0; x < VGA_WIDTH; x++) {
+            const size_t src_index = y * VGA_WIDTH + x;
+            const size_t dst_index = (y - 1) * VGA_WIDTH + x;
+            vga_buffer[dst_index] = vga_buffer[src_index];
+        }
+    }
+
+    // Vider la derniere ligne (ligne 24)
+    for (size_t x = 0; x < VGA_WIDTH; x++) {
+        const size_t index = (VGA_HEIGHT - 1) * VGA_WIDTH + x;
+        vga_buffer[index] = vga_entry(' ', terminal_color);
+    }
+}
+
+/**
+ * Passe a la ligne suivante avec gestion du scrolling
+ * - Line Wrapping: retour a la colonne 0
+ * - Scrolling: si on depasse la ligne 25, l'ecran remonte
+ */
 void terminal_newline(void) {
     terminal_column = 0;
     terminal_row++;
@@ -376,16 +404,31 @@ void terminal_newline(void) {
     }
 }
 
+/**
+ * Met a jour la position du curseur materiel clignotant
+ * Utilise les ports I/O 0x3D4 (index) et 0x3D5 (data) du controleur VGA
+ */
 void terminal_update_cursor(size_t x, size_t y) {
     uint16_t pos = y * VGA_WIDTH + x;
 
     outb(0x3D4, 0x0F);
     outb(0x3D5, (uint8_t)(pos & 0xFF));
+
+    // Envoyer la partie haute de la position (registre 0x0E)
     outb(0x3D4, 0x0E);
     outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
 
+/**
+ * Active et configure le curseur materiel clignotant
+ * cursor_start: ligne de debut du curseur (0-15)
+ * cursor_end: ligne de fin du curseur (0-15)
+ * Pour un curseur en forme de bloc: start=0, end=15
+ * Pour un curseur en forme de ligne: start=14, end=15
+ */
 void terminal_enable_cursor(uint8_t cursor_start, uint8_t cursor_end) {
+    // Registre 0x0A: Cursor Start Register
+    // Bit 5 = 0 pour activer le curseur (1 = desactive)
     outb(0x3D4, 0x0A);
     outb(0x3D5, (cursor_start & 0x1F));
     outb(0x3D4, 0x0B);
@@ -423,6 +466,7 @@ void terminal_putchar(char c) {
     }
 
     if (c == '\n') {
+        // Nouvelle ligne
         terminal_newline();
     } else if (c == '\b') {
         terminal_backspace();
