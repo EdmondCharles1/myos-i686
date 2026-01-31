@@ -28,6 +28,18 @@
 #define KEY_NUMLOCK     0x45
 #define KEY_SCROLLLOCK  0x46
 
+// Scancodes etendus (apres 0xE0)
+#define KEY_EXT_UP      0x48
+#define KEY_EXT_DOWN    0x50
+#define KEY_EXT_LEFT    0x4B
+#define KEY_EXT_RIGHT   0x4D
+
+// Caracteres speciaux retournes pour les fleches (codes non-ASCII)
+#define CHAR_ARROW_UP    0x80
+#define CHAR_ARROW_DOWN  0x81
+#define CHAR_ARROW_LEFT  0x82
+#define CHAR_ARROW_RIGHT 0x83
+
 void keyboard_init(void);
 char keyboard_getchar(void);
 bool keyboard_has_char(void);
