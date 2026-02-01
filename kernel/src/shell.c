@@ -15,6 +15,25 @@
 #include "ipc.h"
 #include "sync.h"
 
+
+
+// =============================================================================
+// gel de l'OS
+// =============================================================================
+
+static void cmd_nosched(int argc, char** argv) {
+    (void)argc; (void)argv;
+    timer_disable_scheduler();
+    printf("Mode Manuel: Le scheduler temps reel est stoppe.\n");
+}
+
+static void cmd_sched_on(int argc, char** argv) {
+    (void)argc; (void)argv;
+    timer_enable_scheduler();
+    printf("Mode Temps Reel: Le scheduler est de nouveau actif.\n");
+}
+
+
 // =============================================================================
 // Variables globales
 // =============================================================================
@@ -189,6 +208,8 @@ static void demo_process_medium(void) {
     for (uint32_t i = 0; i < 500000; i++) {
         count++;
     }
+    printf("\n[PROC] Fin de tache.\n");
+    process_exit();
 }
 
 static void demo_process_long(void) {
@@ -694,7 +715,7 @@ static void cmd_mbox(int argc, char** argv) {
 
 static void cmd_mutex(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: mutex <list|create|lock|unlock|test|demo>\n");
+        printf("Usage: mutex <list|create|lock|unlock|test>\n");
         return;
     }
 
@@ -723,8 +744,7 @@ static void cmd_mutex(int argc, char** argv) {
         if (r == SYNC_SUCCESS) {
             printf("Mutex verrouille\n");
         } else if (r == SYNC_ERROR_BUSY) {
-            printf("Mutex deja pris (bloquerait en contexte processus)\n");
-            printf("Utilisez 'mutex demo' pour voir le blocage avec processus\n");
+            printf("Mutex deja pris\n");
         } else {
             printf("Erreur: %d\n", r);
         }
@@ -745,12 +765,8 @@ static void cmd_mutex(int argc, char** argv) {
     } else if (string_compare(argv[1], "test") == 0) {
         mutex_test();
 
-    } else if (string_compare(argv[1], "demo") == 0) {
-        mutex_demo();
-
     } else {
         printf("Commande mutex inconnue: %s\n", argv[1]);
-        printf("Usage: mutex <list|create|lock|unlock|test|demo>\n");
     }
 }
 
@@ -861,6 +877,11 @@ static const shell_command_t builtin_commands[] = {
     // Synchronisation
     { "mutex",   "Gestion mutex",                    cmd_mutex },
     { "sem",     "Gestion semaphores",               cmd_sem },
+
+    // ordonnancement
+    { "nosched",  "Stoppe l'ordonnanceur",           cmd_nosched },
+    { "sched",    "Active l'ordonnanceur",           cmd_sched_on },
+    { "simulate", "Simule l'ordonnancement",         cmd_simulate },
 
     { NULL, NULL, NULL }
 };

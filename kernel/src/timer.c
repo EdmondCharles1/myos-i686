@@ -16,6 +16,7 @@
 #define PIT_CHANNEL1    0x41    // Channel 1 data port (pas utilisé)
 #define PIT_CHANNEL2    0x42    // Channel 2 data port (speaker)
 #define PIT_COMMAND     0x43    // Mode/Command register
+#define TIMER_FREQUENCY 1193182 // PIT base frequency in Hz
 
 // =============================================================================
 // Variables globales

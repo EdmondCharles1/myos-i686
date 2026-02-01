@@ -213,11 +213,6 @@ void sem_print_all(void);
 void mutex_test(void);
 
 /**
- * Demonstration du blocage mutex avec processus
- */
-void mutex_demo(void);
-
-/**
  * Test des semaphores
  */
 void sem_test(void);

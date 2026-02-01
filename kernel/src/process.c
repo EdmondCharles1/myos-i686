@@ -5,6 +5,7 @@
 #include "process.h"
 #include "printf.h"
 #include "timer.h"
+#include <stdint.h>
 
 // =============================================================================
 // Variables globales
@@ -87,97 +88,63 @@ void process_init(void) {
 }
 
 uint32_t process_create(const char* name, void (*entry)(void), uint32_t priority) {
-    // Vérifier les paramètres
-    if (name == NULL || entry == NULL) {
-        printf("[PROCESS] Erreur: parametres invalides\n");
-        return 0;
-    }
+    if (name == NULL || entry == NULL) return 0;
     
-    // Limiter la priorité
-    if (priority > PRIORITY_MAX) {
-        priority = PRIORITY_MAX;
-    }
+    if (priority > PRIORITY_MAX) priority = PRIORITY_MAX;
     
-    // Trouver un slot libre
     process_t* process = find_free_slot();
-    if (process == NULL) {
-        printf("[PROCESS] Erreur: table de processus pleine\n");
-        return 0;
-    }
+    if (process == NULL) return 0;
     
-    // Initialiser le PCB
+    // --- 1. NETTOYAGE CRITIQUE ---
+    // On remet TOUT le PCB à zéro pour éviter les résidus (surtout le pointeur 'next')
+    memory_zero(process, sizeof(process_t));
+
     process->pid = next_pid++;
     string_copy(process->name, name, PROCESS_NAME_LEN);
+    
+    // --- 2. ÉTAT INITIAL : NEW ---
+    // On le laisse en NEW. C'est scheduler_add_process qui le passera en READY.
     process->state = PROCESS_STATE_NEW;
     process->priority = priority;
     
-    // Allouer une pile (simplifié : on utilise un buffer statique pour l'instant)
-    // TODO: implémenter un allocateur de mémoire
+    // Gestion de la pile
     static uint8_t stacks[MAX_PROCESSES][PROCESS_STACK_SIZE];
-    
-    // Calculer l'index du stack à utiliser
     uint32_t stack_index = (process->pid - 1) % MAX_PROCESSES;
-    
-    // Mettre à zéro le stack
     memory_zero(&stacks[stack_index][0], PROCESS_STACK_SIZE);
     
-    // Le stack grandit vers le bas, donc on pointe vers la fin
-    process->stack_base = (uint32_t)&stacks[stack_index][PROCESS_STACK_SIZE];
-    process->stack_size = PROCESS_STACK_SIZE;
+    // Initialisation du contexte (Stack Frame pour x86)
+    process->stack_base = (uint32_t)(uintptr_t)&stacks[stack_index][PROCESS_STACK_SIZE];
     
-    // Initialiser le contexte CPU
-    process->context.eip = (uint32_t)entry;
-    process->context.esp = process->stack_base;
+    // IMPORTANT : On simule un empilement initial pour le context_switch
+    // On réserve de l'espace pour les registres que 'pop' va récupérer
+    process->context.esp = process->stack_base - sizeof(cpu_context_t); 
     process->context.ebp = process->stack_base;
-    process->context.eflags = 0x202;  // Interruptions activées (IF=1)
+    process->context.eip = (uint32_t)(uintptr_t)entry;
+    process->context.eflags = 0x202; // IF=1
     
-    // Initialiser tous les registres à 0
-    process->context.eax = 0;
-    process->context.ebx = 0;
-    process->context.ecx = 0;
-    process->context.edx = 0;
-    process->context.esi = 0;
-    process->context.edi = 0;
-    process->context.cr3 = 0;  // Pas de pagination pour l'instant
-    
-    // Statistiques
-    process->total_ticks = 0;
+    // Stats et Burst
     process->start_tick = timer_get_ticks();
-    process->time_slice = 10;  // 10 ticks par défaut (100ms à 100Hz)
-    process->remaining_slice = process->time_slice;
-
-    // Champs pour SJF/SRTF (valeurs par défaut)
-    process->burst_time = 50;       // Estimation par défaut
+    process->burst_time = 50;
     process->remaining_time = 50;
-    process->arrival_time = (uint32_t)timer_get_ticks();
+    process->time_slice = 10;
+    process->remaining_slice = 10;
 
-    // Champs pour MLFQ
+    // MLFQ
     process->mlfq_level = 0;
     process->mlfq_allotment = 30;
 
-    // Champs de blocage
-    process->block_reason = 0;
-    process->block_resource = NULL;
-
     // Relations
-    if (current_process != NULL) {
-        process->parent_pid = current_process->pid;
-    } else {
-        process->parent_pid = 0;
-    }
+    process->parent_pid = (current_process != NULL) ? current_process->pid : 0;
 
-    process->next = NULL;
+    // --- 3. GARANTIE DE CHAÎNAGE ---
+    process->next = NULL; 
     
-    // Passer à l'état READY
-    process->state = PROCESS_STATE_READY;
     active_processes++;
     
-    printf("[PROCESS] Processus cree: PID=%u, nom='%s', priorite=%u\n",
-           process->pid, process->name, process->priority);
+    printf("[PROCESS] Cree: PID=%u, nom='%s'\n", process->pid, process->name);
     
     return process->pid;
 }
-
 void process_exit(void) {
     if (current_process == NULL) {
         return;
