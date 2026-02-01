@@ -694,7 +694,7 @@ static void cmd_mbox(int argc, char** argv) {
 
 static void cmd_mutex(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: mutex <list|create|lock|unlock|test>\n");
+        printf("Usage: mutex <list|create|lock|unlock|test|demo>\n");
         return;
     }
 
@@ -723,7 +723,8 @@ static void cmd_mutex(int argc, char** argv) {
         if (r == SYNC_SUCCESS) {
             printf("Mutex verrouille\n");
         } else if (r == SYNC_ERROR_BUSY) {
-            printf("Mutex deja pris\n");
+            printf("Mutex deja pris (bloquerait en contexte processus)\n");
+            printf("Utilisez 'mutex demo' pour voir le blocage avec processus\n");
         } else {
             printf("Erreur: %d\n", r);
         }
@@ -744,8 +745,12 @@ static void cmd_mutex(int argc, char** argv) {
     } else if (string_compare(argv[1], "test") == 0) {
         mutex_test();
 
+    } else if (string_compare(argv[1], "demo") == 0) {
+        mutex_demo();
+
     } else {
         printf("Commande mutex inconnue: %s\n", argv[1]);
+        printf("Usage: mutex <list|create|lock|unlock|test|demo>\n");
     }
 }
 
