@@ -308,7 +308,11 @@ void scheduler_add_process(process_t* process) {
     }
 
     // Mettre le processus en état READY
-    process->state = PROCESS_STATE_READY;
+    //process->state = PROCESS_STATE_READY;
+    if (process->state == PROCESS_STATE_READY || process->state == PROCESS_STATE_RUNNING) {
+        printf("[SCHEDULER] ATTENTION: Tentative d'ajout d'un processus deja actif (PID=%u)\n", process->pid);
+        return;
+    }
 
     // Initialiser les champs pour SJF/SRTF si non définis
     if (process->burst_time == 0) {

@@ -547,7 +547,7 @@ static void cmd_states(int argc, char** argv) {
     printf("1. Processus cree (PID=%u): etat=%s\n", pid, process_state_to_string(p->state));
 
     // Ajouter a la file READY
-    scheduler_add_process(p);
+    //scheduler_add_process(p);
     printf("2. Ajoute a la file:        etat=%s\n", process_state_to_string(p->state));
 
     printf("\nUtilisez 'block %u' puis 'unblock %u' pour tester BLOCKED\n", pid, pid);
@@ -935,7 +935,7 @@ extern void terminal_scroll_to_bottom(void);
 void shell_run(void) {
     printf("\n");
     printf("=========================================================\n");
-    printf("        Bienvenue dans myos-i686 Mini-Shell v0.9        \n");
+    printf("       Bienvenue dans myos-i686 Mini-Shell v0.9        \n");
     printf("=========================================================\n");
     printf("       OS complet avec ordonnancement avance,           \n");
     printf("       gestion memoire, IPC et synchronisation          \n");
@@ -948,7 +948,7 @@ void shell_run(void) {
     printf("myos-i686 shell > ");
 
     while (1) {
-        char c = keyboard_getchar();
+         unsigned char c = keyboard_getchar();
 
         if (c == '\n') {
             printf("\n");
