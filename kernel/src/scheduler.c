@@ -697,155 +697,238 @@ const char* scheduler_type_to_string(scheduler_type_t type) {
 
 void scheduler_simulate(uint32_t ticks) {
     printf("\n=== Simulation d'ordonnancement (%s) ===\n", scheduler_type_to_string(current_scheduler));
-    printf("Simulation de %u ticks...\n\n", ticks);
+    printf("Simulation de %u ticks...\n", ticks);
+
+    // Afficher l'etat initial
+    printf("\nEtat initial:\n");
+    printf("  Processus en file READY: %u\n", ready_queue.count);
+    if (current_process != NULL) {
+        printf("  Processus courant: PID=%u '%s'\n", current_process->pid, current_process->name);
+    } else {
+        printf("  Processus courant: aucun\n");
+    }
+
+    // Verifier s'il y a des processus a simuler
+    if (ready_queue.count == 0 && (current_process == NULL || current_process->pid == 1)) {
+        printf("\n[!] Aucun processus a simuler!\n");
+        printf("    Utilisez 'bench' ou 'demo' pour creer des processus d'abord.\n");
+        printf("    Exemple:\n");
+        printf("      bench\n");
+        printf("      simulate 200\n");
+        printf("      log\n\n");
+        return;
+    }
 
     // Reinitialiser le journal
     exec_log_index = 0;
     total_context_switches = 0;
 
-    // Sauvegarder l'etat actuel
-    process_t* saved_current = current_process;
-    current_process = NULL;
+    // Copier les processus de la file pour la simulation
+    // On va travailler avec une copie pour ne pas perturber le vrai ordonnanceur
+    process_t* sim_processes[32];
+    uint32_t sim_count = 0;
+    uint32_t sim_remaining[32];
 
-    // Simuler les ticks
+    // Ajouter le processus courant (sauf idle)
+    if (current_process != NULL && current_process->pid != 1) {
+        sim_processes[sim_count] = current_process;
+        sim_remaining[sim_count] = current_process->remaining_time > 0 ?
+                                   current_process->remaining_time : current_process->burst_time;
+        if (sim_remaining[sim_count] == 0) sim_remaining[sim_count] = 50;
+        sim_count++;
+    }
+
+    // Ajouter les processus de la ready_queue
+    process_t* p = ready_queue.head;
+    while (p != NULL && sim_count < 32) {
+        sim_processes[sim_count] = p;
+        sim_remaining[sim_count] = p->remaining_time > 0 ? p->remaining_time : p->burst_time;
+        if (sim_remaining[sim_count] == 0) sim_remaining[sim_count] = 50;
+        sim_count++;
+        p = p->next;
+    }
+
+    printf("  Processus a simuler: %u\n\n", sim_count);
+
+    if (sim_count == 0) {
+        printf("[!] Aucun processus valide pour simulation.\n\n");
+        return;
+    }
+
+    // Afficher les processus
+    printf("Processus:\n");
+    for (uint32_t i = 0; i < sim_count; i++) {
+        printf("  - %s (PID=%u, prio=%u, burst=%u)\n",
+               sim_processes[i]->name,
+               sim_processes[i]->pid,
+               sim_processes[i]->priority,
+               sim_remaining[i]);
+    }
+    printf("\n");
+
+    // Variables de simulation
+    uint32_t current_idx = 0;
+    uint32_t quantum_remaining = 10;  // Quantum par defaut
     uint64_t sim_tick = 0;
+    uint64_t start_tick = 0;
+    uint32_t completed = 0;
 
-    for (uint32_t t = 0; t < ticks; t++) {
-        sim_tick++;
-
-        // Si pas de processus courant, en choisir un
-        if (current_process == NULL) {
-            current_process = select_next_process();
-            if (current_process != NULL) {
-                current_process->state = PROCESS_STATE_RUNNING;
-                current_process->remaining_slice = current_process->time_slice;
-                current_process->start_tick = sim_tick;
+    // Trouver le premier processus selon l'algorithme
+    if (current_scheduler == SCHEDULER_PRIORITY) {
+        uint32_t best_prio = 0;
+        for (uint32_t i = 0; i < sim_count; i++) {
+            if (sim_remaining[i] > 0 && sim_processes[i]->priority > best_prio) {
+                best_prio = sim_processes[i]->priority;
+                current_idx = i;
             }
-            continue;
         }
-
-        // Incrementer les compteurs
-        current_process->total_ticks++;
-        current_process->remaining_slice--;
-
-        if (current_scheduler == SCHEDULER_SRTF && current_process->remaining_time > 0) {
-            current_process->remaining_time--;
-        }
-
-        if (current_scheduler == SCHEDULER_MLFQ && current_process->mlfq_allotment > 0) {
-            current_process->mlfq_allotment--;
-        }
-
-        // Verifier si on doit changer
-        bool should_switch = false;
-        bool preempt_better = false;
-
-        switch (current_scheduler) {
-            case SCHEDULER_FCFS:
-                // Terminer quand remaining_time = 0
-                if (current_process->remaining_time == 0) {
-                    should_switch = true;
-                }
-                break;
-
-            case SCHEDULER_ROUND_ROBIN:
-                if (current_process->remaining_slice == 0) {
-                    should_switch = true;
-                }
-                break;
-
-            case SCHEDULER_PRIORITY: {
-                process_t* best = find_highest_priority(&ready_queue);
-                if (best != NULL && best->priority > current_process->priority) {
-                    preempt_better = true;
-                    should_switch = true;
-                }
-                // Aussi changer si quantum epuise
-                if (current_process->remaining_slice == 0) {
-                    should_switch = true;
-                }
-                break;
+    } else if (current_scheduler == SCHEDULER_SJF || current_scheduler == SCHEDULER_SRTF) {
+        uint32_t shortest = 0xFFFFFFFF;
+        for (uint32_t i = 0; i < sim_count; i++) {
+            if (sim_remaining[i] > 0 && sim_remaining[i] < shortest) {
+                shortest = sim_remaining[i];
+                current_idx = i;
             }
+        }
+    }
 
-            case SCHEDULER_SJF:
-                if (current_process->remaining_time == 0) {
-                    should_switch = true;
-                }
-                break;
+    start_tick = 0;
+    printf("Debut simulation...\n");
 
-            case SCHEDULER_SRTF: {
-                process_t* best = find_shortest_remaining(&ready_queue);
-                if (best != NULL && best->remaining_time < current_process->remaining_time) {
-                    preempt_better = true;
-                    should_switch = true;
-                }
-                if (current_process->remaining_time == 0) {
-                    should_switch = true;
-                }
-                break;
-            }
+    // Boucle de simulation
+    for (uint32_t t = 0; t < ticks && completed < sim_count; t++) {
+        sim_tick = t + 1;
 
-            case SCHEDULER_MLFQ:
-                if (current_process->remaining_slice == 0) {
-                    should_switch = true;
-                }
-                break;
+        // Decrementer le temps restant du processus courant
+        if (sim_remaining[current_idx] > 0) {
+            sim_remaining[current_idx]--;
+            quantum_remaining--;
         }
 
-        // Context switch si necessaire
+        // Verifier si le processus est termine
+        bool process_done = (sim_remaining[current_idx] == 0);
+        bool quantum_done = (quantum_remaining == 0);
+        bool should_switch = process_done;
+
+        // Pour Round Robin, MLFQ : changer si quantum epuise
+        if (!should_switch && quantum_done) {
+            if (current_scheduler == SCHEDULER_ROUND_ROBIN ||
+                current_scheduler == SCHEDULER_MLFQ) {
+                should_switch = true;
+            }
+        }
+
+        // Pour SRTF : preemption si meilleur processus
+        if (!should_switch && current_scheduler == SCHEDULER_SRTF) {
+            for (uint32_t i = 0; i < sim_count; i++) {
+                if (i != current_idx && sim_remaining[i] > 0 &&
+                    sim_remaining[i] < sim_remaining[current_idx]) {
+                    should_switch = true;
+                    break;
+                }
+            }
+        }
+
+        // Pour Priority : preemption si meilleure priorite
+        if (!should_switch && current_scheduler == SCHEDULER_PRIORITY) {
+            for (uint32_t i = 0; i < sim_count; i++) {
+                if (i != current_idx && sim_remaining[i] > 0 &&
+                    sim_processes[i]->priority > sim_processes[current_idx]->priority) {
+                    should_switch = true;
+                    break;
+                }
+            }
+        }
+
+        // Effectuer le context switch
         if (should_switch) {
-            bool has_waiting = false;
-            if (current_scheduler == SCHEDULER_MLFQ) {
-                for (int i = 0; i < MLFQ_LEVELS; i++) {
-                    if (!queue_is_empty(&mlfq_queues[i])) {
-                        has_waiting = true;
-                        break;
-                    }
-                }
-            } else {
-                has_waiting = !queue_is_empty(&ready_queue);
-            }
-
-            if (!has_waiting && current_process->remaining_time > 0) {
-                current_process->remaining_slice = current_process->time_slice;
-                continue;
-            }
-
-            // Logger l'execution
-            log_execution(current_process, current_process->start_tick, sim_tick);
+            // Logger l'execution du processus actuel
+            log_execution(sim_processes[current_idx], start_tick, sim_tick);
             total_context_switches++;
 
-            // Remettre en file si pas termine
-            process_t* old = current_process;
-            if (old->remaining_time > 0) {
-                old->state = PROCESS_STATE_READY;
-                if (current_scheduler == SCHEDULER_MLFQ) {
-                    queue_enqueue(&mlfq_queues[old->mlfq_level], old);
-                } else {
-                    queue_enqueue(&ready_queue, old);
-                }
-            } else {
-                old->state = PROCESS_STATE_TERMINATED;
-                printf("  [Tick %u] Processus '%s' termine\n", (uint32_t)sim_tick, old->name);
+            if (process_done) {
+                printf("  [Tick %u] '%s' termine (duree=%u)\n",
+                       (uint32_t)sim_tick,
+                       sim_processes[current_idx]->name,
+                       (uint32_t)(sim_tick - start_tick));
+                completed++;
             }
 
-            // Choisir le suivant
-            current_process = select_next_process();
-            if (current_process != NULL) {
-                current_process->state = PROCESS_STATE_RUNNING;
-                current_process->remaining_slice = current_process->time_slice;
-                current_process->start_tick = sim_tick;
+            // Trouver le prochain processus
+            uint32_t next_idx = current_idx;
+            bool found = false;
+
+            switch (current_scheduler) {
+                case SCHEDULER_FCFS:
+                case SCHEDULER_ROUND_ROBIN:
+                case SCHEDULER_MLFQ:
+                    // Round robin : prendre le suivant dans l'ordre
+                    for (uint32_t i = 1; i <= sim_count; i++) {
+                        uint32_t idx = (current_idx + i) % sim_count;
+                        if (sim_remaining[idx] > 0) {
+                            next_idx = idx;
+                            found = true;
+                            break;
+                        }
+                    }
+                    break;
+
+                case SCHEDULER_PRIORITY:
+                    // Priorite : prendre le plus prioritaire
+                    {
+                        uint32_t best_prio = 0;
+                        for (uint32_t i = 0; i < sim_count; i++) {
+                            if (sim_remaining[i] > 0 && sim_processes[i]->priority >= best_prio) {
+                                best_prio = sim_processes[i]->priority;
+                                next_idx = i;
+                                found = true;
+                            }
+                        }
+                    }
+                    break;
+
+                case SCHEDULER_SJF:
+                case SCHEDULER_SRTF:
+                    // SJF/SRTF : prendre le plus court
+                    {
+                        uint32_t shortest = 0xFFFFFFFF;
+                        for (uint32_t i = 0; i < sim_count; i++) {
+                            if (sim_remaining[i] > 0 && sim_remaining[i] < shortest) {
+                                shortest = sim_remaining[i];
+                                next_idx = i;
+                                found = true;
+                            }
+                        }
+                    }
+                    break;
+            }
+
+            if (found && next_idx != current_idx) {
+                printf("  [Tick %u] Switch: '%s' -> '%s'\n",
+                       (uint32_t)sim_tick,
+                       sim_processes[current_idx]->name,
+                       sim_processes[next_idx]->name);
+            }
+
+            current_idx = next_idx;
+            start_tick = sim_tick;
+            quantum_remaining = 10;
+
+            // Si tous termines, arreter
+            if (completed >= sim_count) {
+                break;
             }
         }
     }
 
-    // Log final si un processus etait en cours
-    if (current_process != NULL) {
-        log_execution(current_process, current_process->start_tick, sim_tick);
+    // Logger le dernier processus en cours si non termine
+    if (completed < sim_count && sim_remaining[current_idx] > 0) {
+        log_execution(sim_processes[current_idx], start_tick, sim_tick);
     }
 
-    printf("\nSimulation terminee. Utilisez 'log' pour voir le journal.\n");
-
-    // Restaurer l'etat
-    current_process = saved_current;
+    printf("\n=== Simulation terminee ===\n");
+    printf("  Ticks simules: %u\n", (uint32_t)sim_tick);
+    printf("  Processus termines: %u/%u\n", completed, sim_count);
+    printf("  Context switches: %u\n", (uint32_t)total_context_switches);
+    printf("\nUtilisez 'log' pour voir le journal d'execution.\n\n");
 }
